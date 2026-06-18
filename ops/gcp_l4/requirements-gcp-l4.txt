@@ -1,0 +1,13 @@
+numpy
+pandas
+pillow
+scikit-learn
+scipy
+timm
+tqdm
+transformers
+safetensors
+accelerate
+einops
+matplotlib
+opencv-python-headless
