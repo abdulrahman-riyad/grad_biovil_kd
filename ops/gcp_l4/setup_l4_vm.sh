@@ -9,12 +9,24 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 VENV_DIR="${VENV_DIR:-$HOME/venvs/grad-biovil-l4}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+if ! command -v nvidia-smi >/dev/null 2>&1; then
+  echo "nvidia-smi is not available; installing the Google-tested NVIDIA driver."
+  echo "The installer can take several minutes and might require a reboot."
+  sudo systemctl stop google-cloud-ops-agent || true
+  mkdir -p /opt/google/cuda-installer
+  cd /opt/google/cuda-installer
+  curl -fSsL -O https://storage.googleapis.com/compute-gpu-installation-us/installer/latest/cuda_installer.pyz
+  sudo python3 cuda_installer.pyz install_driver --installation-branch=lts || sudo python3 cuda_installer.pyz install_driver
+  echo "Driver installation finished. Rebooting now; reconnect and rerun this script."
+  sudo reboot
+  exit 0
+fi
+
 "$PYTHON_BIN" -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
-# CUDA 12.1 wheels work on standard GCP L4 driver images. If your image ships a
-# different CUDA/driver stack, use the matching command from pytorch.org.
+# CUDA 12.1 wheels work with the Google-tested L4 driver installed above.
 python -m pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
 python -m pip install -r "$SCRIPT_DIR/requirements-gcp-l4.txt"
 

@@ -26,25 +26,11 @@ class HardwareProfile:
 
 
 HARDWARE_PROFILES: dict[str, HardwareProfile] = {
-    "h100_80gb": HardwareProfile(
-        batch_size=96,
-        num_workers=12,
-        epoch_retrieval_batch_size=384,
-        epoch_retrieval_num_workers=12,
-        amp_dtype="bfloat16",
-    ),
-    "a100_80gb": HardwareProfile(
-        batch_size=64,
-        num_workers=8,
-        epoch_retrieval_batch_size=256,
-        epoch_retrieval_num_workers=8,
-        amp_dtype="bfloat16",
-    ),
-    "rtx_pro_6000_96gb": HardwareProfile(
-        batch_size=64,
-        num_workers=8,
-        epoch_retrieval_batch_size=256,
-        epoch_retrieval_num_workers=8,
+    "l4_24gb": HardwareProfile(
+        batch_size=16,
+        num_workers=4,
+        epoch_retrieval_batch_size=96,
+        epoch_retrieval_num_workers=4,
         amp_dtype="bfloat16",
     ),
 }
@@ -119,7 +105,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hardware-profile",
         choices=list(HARDWARE_PROFILES),
-        default="h100_80gb",
+        default="l4_24gb",
         help="Default throughput settings. Explicit batch/worker arguments override this profile.",
     )
     parser.add_argument("--epochs", type=int, default=6)

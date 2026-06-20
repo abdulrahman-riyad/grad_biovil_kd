@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hardware-profile",
         choices=list(HARDWARE_PROFILES),
-        default="h100_80gb",
+        default="l4_24gb",
         help="Default evaluation throughput settings. Explicit batch/worker arguments override this profile.",
     )
     parser.add_argument("--epochs", type=int, default=6, help="Run suffix used by the training launcher.")

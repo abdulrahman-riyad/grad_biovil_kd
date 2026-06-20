@@ -1,9 +1,32 @@
 # GCP GPU Runbook
 
 This folder contains the GCP VM wrappers for the structured `grad-biovil-kd`
-project. The final target machine is a single NVIDIA H100 80GB GPU
-(`a3-highgpu-1g`). The same scripts also support A100 80GB, full RTX PRO 6000
-96GB, and H100 profiles only.
+project. The active target machine is a single NVIDIA L4 24GB GPU:
+
+```text
+g2-standard-4
+```
+
+H100, RTX PRO 6000, and A100 80GB were not selected for this run because of
+Flex-start waiting, stockout, or missing regional quota. Keep this runbook
+L4-only unless a new GPU provisioning pass proves a better machine is available.
+
+## Create The L4 VM
+
+Run this from Google Cloud Shell:
+
+```bash
+export PROJECT_ID="project-e873d31b-f7ff-4085-bf7"
+curl -fsSL \
+  https://raw.githubusercontent.com/abdulrahman-riyad/grad_biovil_kd/main/ops/gcp_l4/create_l4_vm.sh \
+  -o create_l4_vm.sh
+bash create_l4_vm.sh
+```
+
+The script tries common G2/L4 zones and stops at the first successful VM. It
+uses Debian 12 and installs the Google-tested NVIDIA driver from a startup
+script. If the startup script has not finished by the time you SSH in, rerun the
+setup step below; it will install the driver and reboot once if needed.
 
 ## Expected Directory Layout
 
@@ -47,8 +70,9 @@ source "$HOME/venvs/grad-biovil-l4/bin/activate"
 ```
 
 The setup script installs CUDA-enabled PyTorch and the project Python
-dependencies. Confirm it prints `cuda_available True` and the expected GPU
-device.
+dependencies. If `nvidia-smi` is missing, it installs the NVIDIA driver first
+and reboots; reconnect and rerun the setup command. Confirm the final run prints
+`cuda_available True` and an NVIDIA L4 device.
 
 ## Preflight
 
@@ -90,11 +114,7 @@ Run the final 6-epoch campaign once for all six selected models:
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
   --run-key all \
   --epochs 6 \
-  --hardware-profile h100_80gb \
-  --batch-size 96 \
-  --num-workers 12 \
-  --epoch-retrieval-batch-size 384 \
-  --epoch-retrieval-num-workers 12
+  --hardware-profile l4_24gb
 ```
 
 The six runs execute in this order:
@@ -136,12 +156,10 @@ After training:
 python project_repo/ops/gcp_l4/evaluate_l4.py \
   --run-key all \
   --epochs 6 \
-  --hardware-profile h100_80gb \
+  --hardware-profile l4_24gb \
   --checkpoint-name best_5k_retrieval.pt \
   --candidate-pools 32,1000,5000,full \
   --seeds 42,43,44,45,46 \
-  --batch-size 384 \
-  --num-workers 12 \
   --similarity-chunk-size 1024
 ```
 
@@ -168,30 +186,32 @@ table13_style_summary.csv          compact reporting table
 The sampled pools `32`, `1000`, and `5000` are evaluated over five seeds. The
 full pool is evaluated once because it is deterministic and expensive.
 
-## Hardware Profiles
+## Hardware Profile
 
-The launcher defaults to `h100_80gb`:
+The launcher defaults to `l4_24gb`:
 
 ```text
-batch-size: 96
-num-workers: 12
-epoch retrieval batch-size: 384
-epoch retrieval num-workers: 12
+batch-size: 16
+num-workers: 4
+epoch retrieval batch-size: 96
+epoch retrieval num-workers: 4
 AMP dtype: bfloat16
 epoch retrieval pools: 5000
 hard negatives per sample: 8
 ```
 
-Available profiles:
+These values are intentionally conservative for a 24GB GPU. If the smoke test
+and first full run are stable, you can try higher explicit overrides such as:
 
-```text
-h100_80gb           H100 80GB / a3-highgpu-1g
-a100_80gb           A100 80GB / a2-ultragpu-1g
-rtx_pro_6000_96gb   full RTX PRO 6000 / g4-standard-48
+```bash
+python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
+  --run-key mobilevit_clinical_distilbert \
+  --epochs 6 \
+  --batch-size 24 \
+  --epoch-retrieval-batch-size 128
 ```
 
-For the expected final H100 run, use the profile defaults first. If this OOMs,
-fall back to `--batch-size 64 --epoch-retrieval-batch-size 256`. Keep all six
-selected models at 6 epochs. Training selects the best checkpoint by 5k
-retrieval; the final evaluation then runs 32, 1000, 5000, and full-pool
-retrieval on the selected checkpoints.
+If this OOMs, return to the `l4_24gb` defaults. Keep all six selected models at
+6 epochs. Training selects the best checkpoint by 5k retrieval; the final
+evaluation then runs 32, 1000, 5000, and full-pool retrieval on the selected
+checkpoints.

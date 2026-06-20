@@ -13,10 +13,16 @@ documentation only. Large artifacts are stored separately in GCS:
 
 ## GCP GPU Entry Point
 
-Use the GCP runbook:
+Use the L4/G2 GCP runbook:
 
 ```bash
 project_repo/ops/gcp_l4/README.md
+```
+
+The active VM target is:
+
+```text
+g2-standard-4 with 1x NVIDIA L4 24GB
 ```
 
 Expected VM environment variables:
