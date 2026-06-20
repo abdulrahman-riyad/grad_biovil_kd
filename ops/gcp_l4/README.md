@@ -3,7 +3,7 @@
 This folder contains the GCP VM wrappers for the structured `grad-biovil-kd`
 project. The final target machine is a single NVIDIA H100 80GB GPU
 (`a3-highgpu-1g`). The same scripts also support A100 80GB, full RTX PRO 6000
-96GB, and L4 fallback profiles.
+96GB, and H100 profiles only.
 
 ## Expected Directory Layout
 
@@ -47,7 +47,8 @@ source "$HOME/venvs/grad-biovil-l4/bin/activate"
 ```
 
 The setup script installs CUDA-enabled PyTorch and the project Python
-dependencies. Confirm it prints `cuda_available True` and an NVIDIA L4 device.
+dependencies. Confirm it prints `cuda_available True` and the expected GPU
+device.
 
 ## Preflight
 
@@ -120,7 +121,7 @@ uncertainty regularization
 5k/full retrieval logging after each epoch
 last.pt, epoch_001.pt ... epoch_008.pt
 best_val_loss.pt, best_5k_retrieval.pt, and best_full_retrieval.pt checkpoint selection
-CUDA AMP on the L4
+CUDA AMP on the selected GPU
 ```
 
 ## Evaluation
@@ -180,7 +181,6 @@ Available profiles:
 h100_80gb           H100 80GB / a3-highgpu-1g
 a100_80gb           A100 80GB / a2-ultragpu-1g
 rtx_pro_6000_96gb   full RTX PRO 6000 / g4-standard-48
-l4_24gb             NVIDIA L4 / g2-standard-4
 ```
 
 For the expected final H100 run, use the profile defaults first. If VRAM usage

@@ -11,7 +11,7 @@ documentation only. Large artifacts are stored separately in GCS:
 - training/evaluation outputs
 - MIMIC-CXR image data
 
-## GCP L4 Entry Point
+## GCP GPU Entry Point
 
 Use the GCP runbook:
 

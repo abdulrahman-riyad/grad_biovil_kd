@@ -70,7 +70,7 @@ def parse_args() -> argparse.Namespace:
         "--amp",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Enable CUDA autocast mixed precision. Recommended on NVIDIA L4.",
+        help="Enable CUDA autocast mixed precision. Recommended on supported NVIDIA GPUs.",
     )
     parser.add_argument(
         "--amp-dtype",
