@@ -117,7 +117,9 @@ source "$HOME/venvs/grad-biovil-l4/bin/activate"
 The setup script installs CUDA-enabled PyTorch and the project Python
 dependencies. If `nvidia-smi` is missing, it installs the NVIDIA driver first
 and reboots; reconnect and rerun the setup command. Confirm the final run prints
-`cuda_available True` and an NVIDIA L4 device.
+`cuda_available True`, `torch_ge_2_6 True`, and an NVIDIA L4 device. PyTorch
+must be at least 2.6 because current Transformers blocks loading PyTorch `.bin`
+checkpoints on older PyTorch versions.
 
 ## Preflight
 

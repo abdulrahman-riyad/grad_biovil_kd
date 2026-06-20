@@ -32,8 +32,9 @@ fi
 source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
-# CUDA 12.1 wheels work with the Google-tested L4 driver installed above.
-python -m pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
+# Use a recent CUDA PyTorch build. Transformers refuses to load PyTorch .bin
+# checkpoints with torch < 2.6 because of CVE-2025-32434 protections.
+python -m pip install --upgrade --index-url https://download.pytorch.org/whl/cu126 torch torchvision torchaudio
 python -m pip install -r "$SCRIPT_DIR/requirements-gcp-l4.txt"
 
 python - <<'PY'

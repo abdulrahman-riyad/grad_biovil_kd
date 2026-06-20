@@ -64,9 +64,11 @@ def parse_image_paths(value: object) -> list[str]:
 def check_cuda() -> dict[str, Any]:
     try:
         import torch
+        from packaging.version import Version
 
         info: dict[str, Any] = {
             "torch_version": torch.__version__,
+            "torch_ge_2_6": Version(torch.__version__.split("+", 1)[0]) >= Version("2.6.0"),
             "cuda_available": torch.cuda.is_available(),
             "device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0,
         }
@@ -191,7 +193,13 @@ def main() -> None:
                 collect_failures(f"{prefix}[{index}]", value)
 
     collect_failures("", checks)
-    checks["overall_ok"] = len(failures) == 0 and bool(checks["cuda"].get("cuda_available"))
+    if not checks["cuda"].get("torch_ge_2_6"):
+        failures.append("cuda.torch_ge_2_6")
+    checks["overall_ok"] = (
+        len(failures) == 0
+        and bool(checks["cuda"].get("cuda_available"))
+        and bool(checks["cuda"].get("torch_ge_2_6"))
+    )
     checks["failures"] = failures
 
     output = json.dumps(checks, indent=2)
