@@ -250,17 +250,18 @@ full pool is evaluated once because it is deterministic and expensive.
 The launcher defaults to `l4_24gb`:
 
 ```text
-batch-size: 16
+batch-size: 20
 num-workers: 4
-epoch retrieval batch-size: 96
+epoch retrieval batch-size: 128
 epoch retrieval num-workers: 4
 AMP dtype: bfloat16
 epoch retrieval pools: 5000
 hard negatives per sample: 8
 ```
 
-These values are intentionally conservative for a 24GB GPU. If the smoke test
-and first full run are stable, you can try higher explicit overrides such as:
+These values are tuned for a single 24GB L4 while keeping CPU workers aligned
+with the `g2-standard-4` VM. If the smoke test and first full run are stable,
+you can try a higher explicit batch-size override such as:
 
 ```bash
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \

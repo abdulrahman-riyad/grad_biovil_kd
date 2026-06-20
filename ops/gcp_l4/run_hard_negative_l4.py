@@ -27,9 +27,9 @@ class HardwareProfile:
 
 HARDWARE_PROFILES: dict[str, HardwareProfile] = {
     "l4_24gb": HardwareProfile(
-        batch_size=16,
+        batch_size=20,
         num_workers=4,
-        epoch_retrieval_batch_size=96,
+        epoch_retrieval_batch_size=128,
         epoch_retrieval_num_workers=4,
         amp_dtype="bfloat16",
     ),
