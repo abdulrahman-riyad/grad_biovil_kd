@@ -10,7 +10,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from run_hard_negative_l4 import RUNS, RunConfig, command_to_string, common_paths, image_root_from_args
+from run_hard_negative_l4 import (
+    HARDWARE_PROFILES,
+    RUNS,
+    RunConfig,
+    command_to_string,
+    common_paths,
+    image_root_from_args,
+)
 
 TEACHER_KEY = "teacher_biovil_t"
 
@@ -28,17 +35,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--work-root", default=os.environ.get("GRAD_BIOVIL_WORK", str(Path.home() / "grad_biovil_runs")))
     parser.add_argument("--run-key", choices=["all", TEACHER_KEY, *RUNS.keys()], default="all")
     parser.add_argument("--include-teacher", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--hardware-profile",
+        choices=list(HARDWARE_PROFILES),
+        default="h100_80gb",
+        help="Default evaluation throughput settings. Explicit batch/worker arguments override this profile.",
+    )
     parser.add_argument("--epochs", type=int, default=8, help="Run suffix used by the training launcher.")
     parser.add_argument("--checkpoint-name", default="best_5k_retrieval.pt")
     parser.add_argument("--candidate-pools", default="32,1000,5000,full")
     parser.add_argument("--seeds", default="42,43,44,45,46")
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--similarity-chunk-size", type=int, default=512)
     parser.add_argument("--save-embeddings", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--save-topk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--dry-run", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    profile = HARDWARE_PROFILES[args.hardware_profile]
+    if args.batch_size is None:
+        args.batch_size = profile.epoch_retrieval_batch_size
+    if args.num_workers is None:
+        args.num_workers = profile.epoch_retrieval_num_workers
+    return args
 
 
 def candidate_pool_values(value: str) -> list[int | None]:

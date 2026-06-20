@@ -16,6 +16,47 @@ class RunConfig:
     run_name: str
 
 
+@dataclass(frozen=True)
+class HardwareProfile:
+    batch_size: int
+    num_workers: int
+    epoch_retrieval_batch_size: int
+    epoch_retrieval_num_workers: int
+    amp_dtype: str
+
+
+HARDWARE_PROFILES: dict[str, HardwareProfile] = {
+    "h100_80gb": HardwareProfile(
+        batch_size=64,
+        num_workers=8,
+        epoch_retrieval_batch_size=256,
+        epoch_retrieval_num_workers=8,
+        amp_dtype="bfloat16",
+    ),
+    "a100_80gb": HardwareProfile(
+        batch_size=64,
+        num_workers=8,
+        epoch_retrieval_batch_size=256,
+        epoch_retrieval_num_workers=8,
+        amp_dtype="bfloat16",
+    ),
+    "rtx_pro_6000_96gb": HardwareProfile(
+        batch_size=64,
+        num_workers=8,
+        epoch_retrieval_batch_size=256,
+        epoch_retrieval_num_workers=8,
+        amp_dtype="bfloat16",
+    ),
+    "l4_24gb": HardwareProfile(
+        batch_size=16,
+        num_workers=4,
+        epoch_retrieval_batch_size=64,
+        epoch_retrieval_num_workers=4,
+        amp_dtype="float16",
+    ),
+}
+
+
 RUNS: dict[str, RunConfig] = {
     "mobilevit_clinical_distilbert": RunConfig(
         image_student="mobilevit",
@@ -75,18 +116,24 @@ def default_project_root() -> Path:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run integrated hard-negative contrastive fine-tuning on a single NVIDIA L4 GPU."
+        description="Run integrated hard-negative contrastive fine-tuning on a single NVIDIA GPU."
     )
     parser.add_argument("--project-root", default=os.environ.get("GRAD_BIOVIL_ROOT", str(default_project_root())))
     parser.add_argument("--mimic-root", default=os.environ.get("MIMIC_CXR_ROOT"))
     parser.add_argument("--image-root", default=os.environ.get("MIMIC_CXR_IMAGE_ROOT"))
     parser.add_argument("--work-root", default=os.environ.get("GRAD_BIOVIL_WORK", str(Path.home() / "grad_biovil_runs")))
     parser.add_argument("--run-key", choices=["all", *RUNS.keys()], default="all")
+    parser.add_argument(
+        "--hardware-profile",
+        choices=list(HARDWARE_PROFILES),
+        default="h100_80gb",
+        help="Default throughput settings. Explicit batch/worker arguments override this profile.",
+    )
     parser.add_argument("--epochs", type=int, default=8)
-    parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--num-workers", type=int, default=4)
-    parser.add_argument("--epoch-retrieval-batch-size", type=int, default=64)
-    parser.add_argument("--epoch-retrieval-num-workers", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--num-workers", type=int, default=None)
+    parser.add_argument("--epoch-retrieval-batch-size", type=int, default=None)
+    parser.add_argument("--epoch-retrieval-num-workers", type=int, default=None)
     parser.add_argument("--epoch-retrieval-pools", default="5000,full")
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--encoder-lr", type=float, default=1e-5)
@@ -103,12 +150,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--longitudinal-weight", type=float, default=0.03)
     parser.add_argument("--uncertainty-weight", type=float, default=0.01)
     parser.add_argument("--amp", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--amp-dtype", choices=["float16", "bfloat16"], default="float16")
+    parser.add_argument("--amp-dtype", choices=["float16", "bfloat16"], default=None)
     parser.add_argument("--smoke", action="store_true", help="Run a short sanity check instead of a real run.")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-precompute", action="store_true")
     parser.add_argument("--force-precompute", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    profile = HARDWARE_PROFILES[args.hardware_profile]
+    if args.batch_size is None:
+        args.batch_size = profile.batch_size
+    if args.num_workers is None:
+        args.num_workers = profile.num_workers
+    if args.epoch_retrieval_batch_size is None:
+        args.epoch_retrieval_batch_size = profile.epoch_retrieval_batch_size
+    if args.epoch_retrieval_num_workers is None:
+        args.epoch_retrieval_num_workers = profile.epoch_retrieval_num_workers
+    if args.amp_dtype is None:
+        args.amp_dtype = profile.amp_dtype
+    return args
 
 
 def image_root_from_args(args: argparse.Namespace) -> Path:

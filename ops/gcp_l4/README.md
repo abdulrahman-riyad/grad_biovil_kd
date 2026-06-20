@@ -1,7 +1,9 @@
-# GCP L4 Runbook
+# GCP GPU Runbook
 
 This folder contains the GCP VM wrappers for the structured `grad-biovil-kd`
-project. The target machine is a single NVIDIA L4 GPU with 24 GB VRAM.
+project. The final target machine is a single NVIDIA H100 80GB GPU
+(`a3-highgpu-1g`). The same scripts also support A100 80GB, full RTX PRO 6000
+96GB, and L4 fallback profiles.
 
 ## Expected Directory Layout
 
@@ -87,8 +89,7 @@ Run the final 8-epoch campaign once for all six selected models:
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
   --run-key all \
   --epochs 8 \
-  --batch-size 16 \
-  --num-workers 4
+  --hardware-profile h100_80gb
 ```
 
 The six runs execute in this order:
@@ -130,6 +131,7 @@ After training:
 python project_repo/ops/gcp_l4/evaluate_l4.py \
   --run-key all \
   --epochs 8 \
+  --hardware-profile h100_80gb \
   --checkpoint-name best_5k_retrieval.pt \
   --candidate-pools 32,1000,5000,full \
   --seeds 42,43,44,45,46
@@ -158,20 +160,31 @@ table13_style_summary.csv          compact reporting table
 The sampled pools `32`, `1000`, and `5000` are evaluated over five seeds. The
 full pool is evaluated once because it is deterministic and expensive.
 
-## L4 Defaults
+## Hardware Profiles
 
-Start with:
+The launcher defaults to `h100_80gb`:
 
 ```text
-batch-size: 16
-num-workers: 4
-AMP dtype: float16
+batch-size: 64
+num-workers: 8
+epoch retrieval batch-size: 256
+epoch retrieval num-workers: 8
+AMP dtype: bfloat16
 epoch retrieval pools: 5000,full
 hard negatives per sample: 8
 ```
 
-If VRAM usage is clearly below 20 GB and throughput is stable, try
-`--batch-size 24`. If dataloading is the bottleneck and CPU RAM is healthy,
-try `--num-workers 6`. For the final submission run, keep all six selected
-models at 8 epochs and select final checkpoints by retrieval metrics rather
-than by the last epoch.
+Available profiles:
+
+```text
+h100_80gb           H100 80GB / a3-highgpu-1g
+a100_80gb           A100 80GB / a2-ultragpu-1g
+rtx_pro_6000_96gb   full RTX PRO 6000 / g4-standard-48
+l4_24gb             NVIDIA L4 / g2-standard-4
+```
+
+For the expected final H100 run, use the profile defaults first. If VRAM usage
+is clearly below capacity and CPU/disk throughput is healthy, the first manual
+tuning knob is `--batch-size 96`. If the dataloader is the bottleneck, try
+`--num-workers 12`. Keep all six selected models at 8 epochs and select final
+checkpoints by retrieval metrics rather than by the last epoch.
