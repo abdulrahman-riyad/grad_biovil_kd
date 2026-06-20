@@ -41,7 +41,7 @@ def parse_args() -> argparse.Namespace:
         default="h100_80gb",
         help="Default evaluation throughput settings. Explicit batch/worker arguments override this profile.",
     )
-    parser.add_argument("--epochs", type=int, default=8, help="Run suffix used by the training launcher.")
+    parser.add_argument("--epochs", type=int, default=6, help="Run suffix used by the training launcher.")
     parser.add_argument("--checkpoint-name", default="best_5k_retrieval.pt")
     parser.add_argument("--candidate-pools", default="32,1000,5000,full")
     parser.add_argument("--seeds", default="42,43,44,45,46")

@@ -84,12 +84,12 @@ thresholds, a new file is created.
 
 ## Full Training
 
-Run the final 8-epoch campaign once for all six selected models:
+Run the final 6-epoch campaign once for all six selected models:
 
 ```bash
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
   --run-key all \
-  --epochs 8 \
+  --epochs 6 \
   --hardware-profile h100_80gb
 ```
 
@@ -118,9 +118,9 @@ soft multi-positive targets
 simple disease/anatomy pseudo-label loss
 longitudinal consistency when prior same-subject text exists
 uncertainty regularization
-5k/full retrieval logging after each epoch
-last.pt, epoch_001.pt ... epoch_008.pt
-best_val_loss.pt, best_5k_retrieval.pt, and best_full_retrieval.pt checkpoint selection
+5k retrieval logging after each epoch
+last.pt, epoch_001.pt ... epoch_006.pt
+best_val_loss.pt and best_5k_retrieval.pt checkpoint selection during training
 CUDA AMP on the selected GPU
 ```
 
@@ -131,7 +131,7 @@ After training:
 ```bash
 python project_repo/ops/gcp_l4/evaluate_l4.py \
   --run-key all \
-  --epochs 8 \
+  --epochs 6 \
   --hardware-profile h100_80gb \
   --checkpoint-name best_5k_retrieval.pt \
   --candidate-pools 32,1000,5000,full \
@@ -171,7 +171,7 @@ num-workers: 8
 epoch retrieval batch-size: 256
 epoch retrieval num-workers: 8
 AMP dtype: bfloat16
-epoch retrieval pools: 5000,full
+epoch retrieval pools: 5000
 hard negatives per sample: 8
 ```
 
@@ -186,5 +186,6 @@ rtx_pro_6000_96gb   full RTX PRO 6000 / g4-standard-48
 For the expected final H100 run, use the profile defaults first. If VRAM usage
 is clearly below capacity and CPU/disk throughput is healthy, the first manual
 tuning knob is `--batch-size 96`. If the dataloader is the bottleneck, try
-`--num-workers 12`. Keep all six selected models at 8 epochs and select final
-checkpoints by retrieval metrics rather than by the last epoch.
+`--num-workers 12`. Keep all six selected models at 6 epochs. Training selects
+the best checkpoint by 5k retrieval; the final evaluation then runs 32, 1000,
+5000, and full-pool retrieval on the selected checkpoints.

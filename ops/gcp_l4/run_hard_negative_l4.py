@@ -122,12 +122,12 @@ def parse_args() -> argparse.Namespace:
         default="h100_80gb",
         help="Default throughput settings. Explicit batch/worker arguments override this profile.",
     )
-    parser.add_argument("--epochs", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=6)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--epoch-retrieval-batch-size", type=int, default=None)
     parser.add_argument("--epoch-retrieval-num-workers", type=int, default=None)
-    parser.add_argument("--epoch-retrieval-pools", default="5000,full")
+    parser.add_argument("--epoch-retrieval-pools", default="5000")
     parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--encoder-lr", type=float, default=1e-5)
     parser.add_argument("--hard-negatives-per-sample", type=int, default=8)
