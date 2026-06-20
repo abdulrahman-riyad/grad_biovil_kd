@@ -90,7 +90,11 @@ Run the final 6-epoch campaign once for all six selected models:
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
   --run-key all \
   --epochs 6 \
-  --hardware-profile h100_80gb
+  --hardware-profile h100_80gb \
+  --batch-size 96 \
+  --num-workers 12 \
+  --epoch-retrieval-batch-size 384 \
+  --epoch-retrieval-num-workers 12
 ```
 
 The six runs execute in this order:
@@ -135,7 +139,10 @@ python project_repo/ops/gcp_l4/evaluate_l4.py \
   --hardware-profile h100_80gb \
   --checkpoint-name best_5k_retrieval.pt \
   --candidate-pools 32,1000,5000,full \
-  --seeds 42,43,44,45,46
+  --seeds 42,43,44,45,46 \
+  --batch-size 384 \
+  --num-workers 12 \
+  --similarity-chunk-size 1024
 ```
 
 Outputs are written under:
@@ -166,10 +173,10 @@ full pool is evaluated once because it is deterministic and expensive.
 The launcher defaults to `h100_80gb`:
 
 ```text
-batch-size: 64
-num-workers: 8
-epoch retrieval batch-size: 256
-epoch retrieval num-workers: 8
+batch-size: 96
+num-workers: 12
+epoch retrieval batch-size: 384
+epoch retrieval num-workers: 12
 AMP dtype: bfloat16
 epoch retrieval pools: 5000
 hard negatives per sample: 8
@@ -183,9 +190,8 @@ a100_80gb           A100 80GB / a2-ultragpu-1g
 rtx_pro_6000_96gb   full RTX PRO 6000 / g4-standard-48
 ```
 
-For the expected final H100 run, use the profile defaults first. If VRAM usage
-is clearly below capacity and CPU/disk throughput is healthy, the first manual
-tuning knob is `--batch-size 96`. If the dataloader is the bottleneck, try
-`--num-workers 12`. Keep all six selected models at 6 epochs. Training selects
-the best checkpoint by 5k retrieval; the final evaluation then runs 32, 1000,
-5000, and full-pool retrieval on the selected checkpoints.
+For the expected final H100 run, use the profile defaults first. If this OOMs,
+fall back to `--batch-size 64 --epoch-retrieval-batch-size 256`. Keep all six
+selected models at 6 epochs. Training selects the best checkpoint by 5k
+retrieval; the final evaluation then runs 32, 1000, 5000, and full-pool
+retrieval on the selected checkpoints.

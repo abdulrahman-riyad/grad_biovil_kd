@@ -27,10 +27,10 @@ class HardwareProfile:
 
 HARDWARE_PROFILES: dict[str, HardwareProfile] = {
     "h100_80gb": HardwareProfile(
-        batch_size=64,
-        num_workers=8,
-        epoch_retrieval_batch_size=256,
-        epoch_retrieval_num_workers=8,
+        batch_size=96,
+        num_workers=12,
+        epoch_retrieval_batch_size=384,
+        epoch_retrieval_num_workers=12,
         amp_dtype="bfloat16",
     ),
     "a100_80gb": HardwareProfile(

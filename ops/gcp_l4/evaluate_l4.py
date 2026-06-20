@@ -47,7 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seeds", default="42,43,44,45,46")
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--num-workers", type=int, default=None)
-    parser.add_argument("--similarity-chunk-size", type=int, default=512)
+    parser.add_argument("--similarity-chunk-size", type=int, default=1024)
     parser.add_argument("--save-embeddings", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--save-topk", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--dry-run", action="store_true")
