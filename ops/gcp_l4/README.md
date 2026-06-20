@@ -252,8 +252,8 @@ The launcher defaults to `l4_24gb`:
 ```text
 batch-size: 20
 num-workers: 4
-epoch retrieval batch-size: 128
-epoch retrieval num-workers: 4
+epoch retrieval batch-size: 64
+epoch retrieval num-workers: 2
 AMP dtype: bfloat16
 epoch retrieval pools: 5000
 hard negatives per sample: 8

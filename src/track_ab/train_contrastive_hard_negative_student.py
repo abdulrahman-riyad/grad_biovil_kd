@@ -1368,6 +1368,17 @@ def main() -> None:
 
             if is_main_process(rank):
                 raw_model = model.module if isinstance(model, DistributedDataParallel) else model
+                retrieval_eval: dict[str, Any] = {}
+                checkpoint = {
+                    "epoch": epoch,
+                    "model_state_dict": checkpoint_without_auxiliary_modules(raw_model),
+                    "config": config,
+                    "train_metrics": train_metrics,
+                    "val_metrics": val_metrics,
+                    "retrieval_eval": retrieval_eval,
+                }
+                torch.save(checkpoint, output_dir / "last.pt")
+                torch.save(checkpoint, output_dir / f"epoch_{epoch:03d}.pt")
                 retrieval_eval = run_epoch_retrieval_eval(
                     model=raw_model,
                     metadata=metadata,
@@ -1396,14 +1407,7 @@ def main() -> None:
                 print(json.dumps(record, indent=2, default=json_safe))
                 (output_dir / "history.json").write_text(json.dumps(history, indent=2, default=json_safe), encoding="utf-8")
 
-                checkpoint = {
-                    "epoch": epoch,
-                    "model_state_dict": checkpoint_without_auxiliary_modules(raw_model),
-                    "config": config,
-                    "train_metrics": train_metrics,
-                    "val_metrics": val_metrics,
-                    "retrieval_eval": retrieval_eval,
-                }
+                checkpoint["retrieval_eval"] = retrieval_eval
                 torch.save(checkpoint, output_dir / "last.pt")
                 torch.save(checkpoint, output_dir / f"epoch_{epoch:03d}.pt")
                 if val_metrics["loss"] < best_val_loss:
