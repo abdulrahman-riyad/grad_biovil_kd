@@ -28,6 +28,48 @@ uses Debian 12 and installs the Google-tested NVIDIA driver from a startup
 script. If the startup script has not finished by the time you SSH in, rerun the
 setup step below; it will install the driver and reboot once if needed.
 
+## Connect To The VM
+
+Run this from Google Cloud Shell using the zone printed by the create script:
+
+```bash
+export PROJECT_ID="project-e873d31b-f7ff-4085-bf7"
+export ZONE="us-east1-b"
+
+gcloud compute ssh "grad-l4-train-01" \
+  --project="$PROJECT_ID" \
+  --zone="$ZONE"
+```
+
+Everything below is run inside the VM shell, not in Cloud Shell.
+
+## Bootstrap The VM From GitHub And GCS
+
+The bootstrap script installs system dependencies, installs Google Cloud CLI if
+needed, clones or updates the GitHub repository, syncs the structured artifacts
+from GCS, syncs the extracted MIMIC-CXR dataset from GCS, writes an environment
+file, and installs the Python/CUDA environment.
+
+Run this inside the VM:
+
+```bash
+export BUCKET="project-e873d31b-f7ff-4085-bf7-ml-data-europe-west4"
+
+curl -fsSL \
+  https://raw.githubusercontent.com/abdulrahman-riyad/grad_biovil_kd/main/ops/gcp_l4/bootstrap_l4_vm.sh \
+  -o bootstrap_l4_vm.sh
+
+bash bootstrap_l4_vm.sh
+```
+
+If the setup installs or changes the NVIDIA driver, the VM may reboot. Reconnect
+with the SSH command above, then continue with:
+
+```bash
+source "$HOME/grad_biovil_env.sh"
+source "$HOME/venvs/grad-biovil-l4/bin/activate"
+```
+
 ## Expected Directory Layout
 
 Set these environment variables on the VM:
@@ -63,6 +105,9 @@ export MIMIC_CXR_IMAGE_ROOT="/absolute/path/to/official_data_iccv_final/files"
 
 ## Environment Setup
 
+If you used `bootstrap_l4_vm.sh`, this step has already been run. Use it only
+when manually maintaining an already-synced VM.
+
 ```bash
 cd "$GRAD_BIOVIL_ROOT"
 bash project_repo/ops/gcp_l4/setup_l4_vm.sh
@@ -80,6 +125,9 @@ Run this before training. It validates the structured project, checkpoints,
 teacher artifacts, split files, MIMIC image paths, imports, and CUDA visibility:
 
 ```bash
+source "$HOME/grad_biovil_env.sh"
+source "$HOME/venvs/grad-biovil-l4/bin/activate"
+
 python project_repo/ops/gcp_l4/preflight_l4.py \
   --output-json "$GRAD_BIOVIL_WORK/preflight_l4.json"
 ```
@@ -92,6 +140,9 @@ Run a short sanity check only if the VM or dataset layout is new. This is not
 part of the final training campaign:
 
 ```bash
+source "$HOME/grad_biovil_env.sh"
+source "$HOME/venvs/grad-biovil-l4/bin/activate"
+
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
   --run-key mobilevit_clinical_distilbert \
   --smoke
@@ -111,6 +162,9 @@ thresholds, a new file is created.
 Run the final 6-epoch campaign once for all six selected models:
 
 ```bash
+source "$HOME/grad_biovil_env.sh"
+source "$HOME/venvs/grad-biovil-l4/bin/activate"
+
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
   --run-key all \
   --epochs 6 \
@@ -153,6 +207,9 @@ CUDA AMP on the selected GPU
 After training:
 
 ```bash
+source "$HOME/grad_biovil_env.sh"
+source "$HOME/venvs/grad-biovil-l4/bin/activate"
+
 python project_repo/ops/gcp_l4/evaluate_l4.py \
   --run-key all \
   --epochs 6 \

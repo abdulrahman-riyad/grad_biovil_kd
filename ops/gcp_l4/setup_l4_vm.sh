@@ -9,6 +9,12 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 VENV_DIR="${VENV_DIR:-$HOME/venvs/grad-biovil-l4}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+if ! "$PYTHON_BIN" -m venv --help >/dev/null 2>&1; then
+  echo "python3 venv support is missing; installing base Python tools."
+  sudo apt-get update
+  sudo apt-get install -y python3-venv python3-pip
+fi
+
 if ! command -v nvidia-smi >/dev/null 2>&1; then
   echo "nvidia-smi is not available; installing the Google-tested NVIDIA driver."
   echo "The installer can take several minutes and might require a reboot."
