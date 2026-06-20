@@ -17,18 +17,6 @@ class RunConfig:
 
 
 RUNS: dict[str, RunConfig] = {
-    "mobilevit_biovil_t": RunConfig(
-        image_student="mobilevit",
-        text_encoder="biovil_t",
-        init_checkpoint="checkpoints/contrastive_baselines/biovil_t_text/mobilevit_biovil_t_contrastive_full/best.pt",
-        run_name="mobilevit_biovil_t_hardneg_l4",
-    ),
-    "repvit_biovil_t": RunConfig(
-        image_student="repvit",
-        text_encoder="biovil_t",
-        init_checkpoint="checkpoints/contrastive_baselines/biovil_t_text/repvit_biovil_t_contrastive_full/best.pt",
-        run_name="repvit_biovil_t_hardneg_l4",
-    ),
     "mobilevit_clinical_distilbert": RunConfig(
         image_student="mobilevit",
         text_encoder="clinical_distilbert",
@@ -65,6 +53,18 @@ RUNS: dict[str, RunConfig] = {
         ),
         run_name="repvit_distil_biobert_hardneg_l4",
     ),
+    "mobilevit_biovil_t": RunConfig(
+        image_student="mobilevit",
+        text_encoder="biovil_t",
+        init_checkpoint="checkpoints/contrastive_baselines/biovil_t_text/mobilevit_biovil_t_contrastive_full/best.pt",
+        run_name="mobilevit_biovil_t_hardneg_l4",
+    ),
+    "repvit_biovil_t": RunConfig(
+        image_student="repvit",
+        text_encoder="biovil_t",
+        init_checkpoint="checkpoints/contrastive_baselines/biovil_t_text/repvit_biovil_t_contrastive_full/best.pt",
+        run_name="repvit_biovil_t_hardneg_l4",
+    ),
 }
 
 
@@ -81,8 +81,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mimic-root", default=os.environ.get("MIMIC_CXR_ROOT"))
     parser.add_argument("--image-root", default=os.environ.get("MIMIC_CXR_IMAGE_ROOT"))
     parser.add_argument("--work-root", default=os.environ.get("GRAD_BIOVIL_WORK", str(Path.home() / "grad_biovil_runs")))
-    parser.add_argument("--run-key", choices=["all", *RUNS.keys()], default="mobilevit_biovil_t")
-    parser.add_argument("--epochs", type=int, default=2)
+    parser.add_argument("--run-key", choices=["all", *RUNS.keys()], default="all")
+    parser.add_argument("--epochs", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--epoch-retrieval-batch-size", type=int, default=64)

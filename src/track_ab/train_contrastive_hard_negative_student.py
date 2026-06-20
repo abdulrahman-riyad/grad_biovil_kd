@@ -1405,6 +1405,7 @@ def main() -> None:
                     "retrieval_eval": retrieval_eval,
                 }
                 torch.save(checkpoint, output_dir / "last.pt")
+                torch.save(checkpoint, output_dir / f"epoch_{epoch:03d}.pt")
                 if val_metrics["loss"] < best_val_loss:
                     best_val_loss = val_metrics["loss"]
                     torch.save(checkpoint, output_dir / "best.pt")

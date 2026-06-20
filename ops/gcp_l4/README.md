@@ -59,13 +59,14 @@ python project_repo/ops/gcp_l4/preflight_l4.py \
 
 Do not start training until `overall_ok` is `true`.
 
-## Smoke Test
+## Optional Smoke Test
 
-Run a short MobileViT + BioViL-T sanity check before starting full jobs:
+Run a short sanity check only if the VM or dataset layout is new. This is not
+part of the final training campaign:
 
 ```bash
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
-  --run-key mobilevit_biovil_t \
+  --run-key mobilevit_clinical_distilbert \
   --smoke
 ```
 
@@ -80,35 +81,25 @@ thresholds, a new file is created.
 
 ## Full Training
 
-Gate run:
-
-```bash
-python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
-  --run-key mobilevit_biovil_t \
-  --epochs 2 \
-  --batch-size 16 \
-  --num-workers 4
-```
-
-If the 5k/full retrieval metrics improve, run all six selected models:
+Run the final 8-epoch campaign once for all six selected models:
 
 ```bash
 python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
   --run-key all \
-  --epochs 2 \
+  --epochs 8 \
   --batch-size 16 \
   --num-workers 4
 ```
 
-The six runs are:
+The six runs execute in this order:
 
 ```text
-mobilevit_biovil_t
-repvit_biovil_t
 mobilevit_clinical_distilbert
 repvit_clinical_distilbert
 mobilevit_distil_biobert
 repvit_distil_biobert
+mobilevit_biovil_t
+repvit_biovil_t
 ```
 
 The BioViL-T teacher vision encoder + BioViL-T teacher text encoder is not
@@ -126,7 +117,8 @@ simple disease/anatomy pseudo-label loss
 longitudinal consistency when prior same-subject text exists
 uncertainty regularization
 5k/full retrieval logging after each epoch
-best_5k_retrieval.pt and best_full_retrieval.pt checkpoint selection
+last.pt, epoch_001.pt ... epoch_008.pt
+best_val_loss.pt, best_5k_retrieval.pt, and best_full_retrieval.pt checkpoint selection
 CUDA AMP on the L4
 ```
 
@@ -137,7 +129,7 @@ After training:
 ```bash
 python project_repo/ops/gcp_l4/evaluate_l4.py \
   --run-key all \
-  --epochs 2 \
+  --epochs 8 \
   --checkpoint-name best_5k_retrieval.pt \
   --candidate-pools 32,1000,5000,full \
   --seeds 42,43,44,45,46
@@ -180,5 +172,6 @@ hard negatives per sample: 8
 
 If VRAM usage is clearly below 20 GB and throughput is stable, try
 `--batch-size 24`. If dataloading is the bottleneck and CPU RAM is healthy,
-try `--num-workers 6`. Keep the gate run at 2 epochs first; then extend only
-the best-performing recipes.
+try `--num-workers 6`. For the final submission run, keep all six selected
+models at 8 epochs and select final checkpoints by retrieval metrics rather
+than by the last epoch.

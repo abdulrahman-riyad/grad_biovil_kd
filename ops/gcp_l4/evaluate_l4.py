@@ -28,7 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--work-root", default=os.environ.get("GRAD_BIOVIL_WORK", str(Path.home() / "grad_biovil_runs")))
     parser.add_argument("--run-key", choices=["all", TEACHER_KEY, *RUNS.keys()], default="all")
     parser.add_argument("--include-teacher", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--epochs", type=int, default=2, help="Run suffix used by the training launcher.")
+    parser.add_argument("--epochs", type=int, default=8, help="Run suffix used by the training launcher.")
     parser.add_argument("--checkpoint-name", default="best_5k_retrieval.pt")
     parser.add_argument("--candidate-pools", default="32,1000,5000,full")
     parser.add_argument("--seeds", default="42,43,44,45,46")
