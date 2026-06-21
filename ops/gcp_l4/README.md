@@ -188,6 +188,48 @@ The BioViL-T teacher vision encoder + BioViL-T teacher text encoder is not
 trained. It is evaluated as the seventh comparison row during evaluation using
 the precomputed teacher image/text embeddings.
 
+## Single-Model Train, Evaluate, And Sync
+
+For safer long runs, prefer one model at a time. The wrapper below trains one
+model, runs final retrieval evaluation on `32`, `1000`, `5000`, and `full`
+pools, then syncs that model's training checkpoints, evaluation outputs, and log
+file to:
+
+```text
+gs://$BUCKET/runs/grad-biovil-kd/l4/<run-key>/
+```
+
+Run each command inside `tmux` on the VM:
+
+```bash
+source "$HOME/grad_biovil_env.sh"
+source "$HOME/venvs/grad-biovil-l4/bin/activate"
+
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+  --run-key mobilevit_clinical_distilbert
+```
+
+Then repeat, one at a time:
+
+```bash
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+  --run-key repvit_clinical_distilbert
+
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+  --run-key mobilevit_distil_biobert
+
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+  --run-key repvit_distil_biobert
+
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+  --run-key mobilevit_biovil_t
+
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+  --run-key repvit_biovil_t
+```
+
+If you want to train/evaluate without syncing to GCS, add `--no-sync`.
+
 The launcher uses:
 
 ```text
