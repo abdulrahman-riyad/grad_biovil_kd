@@ -22,7 +22,7 @@ training and evaluation runs.
 ## Baseline Evaluation Scripts
 
 `src/baselines/` contains project baseline evaluation scripts converted from the
-baseline notebook prototypes. These scripts cover:
+baseline notebooks. These scripts cover:
 
 - CLIP ViT-B/14, ViT-B/16, and ViT-B/32;
 - MobileCLIP B, S0, S1, and S2;
@@ -39,7 +39,7 @@ results remain traceable.
 ## Student Training Experiments
 
 `src/student_training_experiments/` contains project training experiments
-converted from notebook prototypes for:
+converted from project notebooks for:
 
 - MobileViT + DistilBioBERT KD/HN training;
 - RepViT + DistilBioBERT KD/HN training.

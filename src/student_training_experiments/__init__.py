@@ -1,1 +1,1 @@
-"""Project student-training experiments exported from notebook prototypes."""
+"""Project student-training experiments exported from project notebooks."""

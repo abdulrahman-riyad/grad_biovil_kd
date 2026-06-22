@@ -1241,4 +1241,4 @@ print(f"Stage 2 text : {STAGE2_TXT_CKPT}")
 
 # %% [markdown] cell 50
 # ## Thoughts
-# <font size='4'> With the successful distillation of BioViL features into MobileViT & DistilBioBERT, we are ready to build a generative VLM. By appending a projection layer and a decoder, the model will be trained to synthesize medical reports from medical images. The upcoming phase involves fine-tuning a decoder on the reports to ensure clinical accuracy. </font>
+# The MobileViT + DistilBioBERT distillation experiment can support decoder-based report generation extensions.

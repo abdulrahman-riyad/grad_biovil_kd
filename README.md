@@ -19,7 +19,7 @@ src/
   baselines/                      General-domain and medical-domain baseline
                                   retrieval evaluation scripts.
   student_training_experiments/   Full-student KD/HN training experiments
-                                  exported from project notebook prototypes.
+                                  exported from project notebooks.
   kd_phase/                       Image-only knowledge-distillation experiments.
   week2_decoder/                  Image-to-report generation experiment.
 
@@ -30,7 +30,7 @@ ops/
 docs/
   track_ab/                       Experiment notes and metric summaries.
   project_code_map.md             Unified map of source modules and notebook
-                                  prototype provenance.
+                                  provenance.
 ```
 
 ## Final GPU Target
