@@ -145,7 +145,7 @@ part of the final training campaign:
 source "$HOME/grad_biovil_env.sh"
 source "$HOME/venvs/grad-biovil-l4/bin/activate"
 
-python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
+python project_repo/ops/gcp_l4/train_stage2_hard_negatives_l4.py \
   --run-key mobilevit_clinical_distilbert \
   --smoke
 ```
@@ -161,32 +161,29 @@ thresholds, a new file is created.
 
 ## Full Training
 
-Run the final 6-epoch campaign once for all six selected models:
+Run the final 6-epoch campaign once for all four final thesis student models:
 
 ```bash
 source "$HOME/grad_biovil_env.sh"
 source "$HOME/venvs/grad-biovil-l4/bin/activate"
 
-python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
+python project_repo/ops/gcp_l4/train_stage2_hard_negatives_l4.py \
   --run-key all \
   --epochs 6 \
   --hardware-profile l4_24gb
 ```
 
-The six runs execute in this order:
+The four final student runs execute in this order:
 
 ```text
 mobilevit_clinical_distilbert
 repvit_clinical_distilbert
 mobilevit_distil_biobert
 repvit_distil_biobert
-mobilevit_biovil_t
-repvit_biovil_t
 ```
 
-The BioViL-T teacher vision encoder + BioViL-T teacher text encoder is not
-trained. It is evaluated as the seventh comparison row during evaluation using
-the precomputed teacher image/text embeddings.
+The BioViL-T teacher is not trained. It is evaluated during retrieval
+evaluation using the precomputed teacher image/text embeddings.
 
 ## Single-Model Train, Evaluate, And Sync
 
@@ -205,27 +202,21 @@ Run each command inside `tmux` on the VM:
 source "$HOME/grad_biovil_env.sh"
 source "$HOME/venvs/grad-biovil-l4/bin/activate"
 
-python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_single_model_l4.py" \
   --run-key mobilevit_clinical_distilbert
 ```
 
 Then repeat, one at a time:
 
 ```bash
-python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_single_model_l4.py" \
   --run-key repvit_clinical_distilbert
 
-python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_single_model_l4.py" \
   --run-key mobilevit_distil_biobert
 
-python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
+python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_single_model_l4.py" \
   --run-key repvit_distil_biobert
-
-python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
-  --run-key mobilevit_biovil_t
-
-python "$GRAD_BIOVIL_ROOT/project_repo/ops/gcp_l4/run_one_l4.py" \
-  --run-key repvit_biovil_t
 ```
 
 If you want to train/evaluate without syncing to GCS, add `--no-sync`.
@@ -254,7 +245,7 @@ After training:
 source "$HOME/grad_biovil_env.sh"
 source "$HOME/venvs/grad-biovil-l4/bin/activate"
 
-python project_repo/ops/gcp_l4/evaluate_l4.py \
+python project_repo/ops/gcp_l4/evaluate_retrieval_l4.py \
   --run-key all \
   --epochs 6 \
   --hardware-profile l4_24gb \
@@ -267,13 +258,13 @@ python project_repo/ops/gcp_l4/evaluate_l4.py \
 Outputs are written under:
 
 ```text
-$GRAD_BIOVIL_WORK/eval_hard_negative_l4/
+$GRAD_BIOVIL_WORK/eval_retrieval_l4/
 ```
 
 The compact summary table is:
 
 ```text
-$GRAD_BIOVIL_WORK/eval_hard_negative_l4/table13_style_summary.csv
+$GRAD_BIOVIL_WORK/eval_retrieval_l4/table13_style_summary.csv
 ```
 
 The evaluator writes:
@@ -306,14 +297,14 @@ with the `g2-standard-4` VM. If the smoke test and first full run are stable,
 you can try a higher explicit batch-size override such as:
 
 ```bash
-python project_repo/ops/gcp_l4/run_hard_negative_l4.py \
+python project_repo/ops/gcp_l4/train_stage2_hard_negatives_l4.py \
   --run-key mobilevit_clinical_distilbert \
   --epochs 6 \
   --batch-size 24 \
   --epoch-retrieval-batch-size 128
 ```
 
-If this OOMs, return to the `l4_24gb` defaults. Keep all six selected models at
+If this OOMs, return to the `l4_24gb` defaults. Keep all four final students at
 6 epochs. Training selects the best checkpoint by 5k retrieval; the final
 evaluation then runs 32, 1000, 5000, and full-pool retrieval on the selected
 checkpoints.

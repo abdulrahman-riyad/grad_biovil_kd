@@ -1,28 +1,46 @@
 # Project Code Map
 
-This repository is organized by project function rather than by contributor or
-notebook origin.
+This repository is organized by project function rather than by contributor,
+week number, or notebook origin.
 
-## Final Retrieval Pipeline
+## Final BioViL-T Retrieval Distillation
 
-`src/track_ab/` contains the maintained image-report retrieval implementation:
+`src/biovil_t_retrieval_distillation/` is the main thesis pipeline. It contains:
 
-- dataset loading and transforms;
-- MobileViT and RepViT student loading;
-- text-student selection;
-- contrastive KD and teacher-feature imitation;
-- hard-negative mining and fine-tuning;
-- full-gallery retrieval evaluation;
+- dataset loading and image transforms;
+- MobileViT and RepViT image-student loading;
+- DistilBioBERT and ClinicalDistilBERT text-student loading;
+- Stage 1 contrastive knowledge distillation;
+- Stage 2 hard-negative fine-tuning;
+- full-gallery student and teacher retrieval evaluation;
 - efficiency benchmarking;
-- Grad-CAM analysis.
+- Grad-CAM++ analysis;
+- a central final-run registry for all four thesis student configurations.
 
-The GCP L4 wrappers in `ops/gcp_l4/` call this pipeline for the final cloud
-training and evaluation runs.
+The central run registry is:
 
-## Baseline Evaluation Scripts
+```text
+src/biovil_t_retrieval_distillation/configs/final_student_runs.py
+```
 
-`src/baselines/` contains project baseline evaluation scripts converted from the
-baseline notebooks. These scripts cover:
+It defines:
+
+```text
+MobileViT + ClinicalDistilBERT
+RepViT + ClinicalDistilBERT
+MobileViT + DistilBioBERT
+RepViT + DistilBioBERT
+```
+
+The converted training notebooks are retained under
+`src/biovil_t_retrieval_distillation/notebook_training_exports/` as reference
+implementations. They are not the source of truth for model coverage; the run
+registry and parameterized training scripts are.
+
+## Baseline Evaluations
+
+`src/baseline_evaluations/` contains the general-domain and medical-domain
+retrieval baseline scripts:
 
 - CLIP ViT-B/14, ViT-B/16, and ViT-B/32;
 - MobileCLIP B, S0, S1, and S2;
@@ -31,28 +49,29 @@ baseline notebooks. These scripts cover:
 - MedCLIP;
 - CXR-CLIP;
 - MGCA;
-- the retrieval aggregation/evaluation pipeline.
+- CheXzero and ConVIRT;
+- embedding-folder retrieval aggregation.
 
 Each converted script keeps the original source-notebook path in its header so
-results remain traceable.
+the implementation remains traceable.
 
-## Student Training Experiments
+## Earlier Project Components
 
-`src/student_training_experiments/` contains project training experiments
-converted from project notebooks for:
+`src/image_encoder_distillation/` contains the earlier image-only
+knowledge-distillation experiments.
 
-- MobileViT + DistilBioBERT KD/HN training;
-- RepViT + DistilBioBERT KD/HN training.
+`src/report_generation/` contains the image-to-report generation experiment.
 
-These files preserve the original notebook sections as comments. The maintained
-production-facing training entry point remains
-`src/track_ab/train_teacher_kd_hn_full_student.py`.
+`notebooks/` contains retained historical notebooks. The project code lives
+under `src/`.
 
-## Earlier Project Phases
+## Cloud Operations
 
-`src/kd_phase/` contains image-only knowledge-distillation experiments.
+`ops/gcp_l4/` contains the L4/G2 VM workflow:
 
-`src/week2_decoder/` contains the image-to-report generation experiment.
-
-The notebooks under `notebooks/` are retained as historical project material;
-the corresponding project code lives under `src/`.
+- VM creation and setup;
+- preflight checks;
+- final student training;
+- Stage 2 hard-negative training;
+- retrieval evaluation;
+- single-run train/evaluate/sync execution.

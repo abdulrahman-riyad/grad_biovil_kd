@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from run_hard_negative_l4 import RUNS, common_paths, image_root_from_args
+from train_stage2_hard_negatives_l4 import RUNS, common_paths, image_root_from_args
 
 
 FILES_MARKER = "official_data_iccv_final/files/"
@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", default=os.environ.get("GRAD_BIOVIL_ROOT"))
     parser.add_argument("--mimic-root", default=os.environ.get("MIMIC_CXR_ROOT"))
     parser.add_argument("--image-root", default=os.environ.get("MIMIC_CXR_IMAGE_ROOT"))
-    parser.add_argument("--work-root", default=os.environ.get("GRAD_BIOVIL_WORK", str(Path.home() / "grad_biovil_runs")))
+    parser.add_argument("--work-root", default=os.environ.get("GRAD_BIOVIL_WORK", str(Path.home() / "grad-biovil-runs")))
     parser.add_argument("--sample-images", type=int, default=25)
     parser.add_argument("--output-json", default=None)
     return parser.parse_args()
@@ -92,9 +92,9 @@ def main() -> None:
 
     paths = common_paths(args)
     image_root = image_root_from_args(args)
-    track_ab_dir = paths["track_ab_dir"]
-    if str(track_ab_dir) not in sys.path:
-        sys.path.insert(0, str(track_ab_dir))
+    retrieval_distillation_dir = paths["retrieval_distillation_dir"]
+    if str(retrieval_distillation_dir) not in sys.path:
+        sys.path.insert(0, str(retrieval_distillation_dir))
 
     checks: dict[str, Any] = {
         "project_root": status(paths["project_root"].exists(), str(paths["project_root"])),
@@ -111,7 +111,7 @@ def main() -> None:
     }
 
     required_paths = {
-        "track_ab_dir": paths["track_ab_dir"],
+        "retrieval_distillation_dir": paths["retrieval_distillation_dir"],
         "artifacts_dir": paths["artifacts_dir"],
         "splits_dir": paths["splits_dir"],
         "mobilevit_checkpoint": paths["mobilevit_checkpoint"],
@@ -123,8 +123,13 @@ def main() -> None:
         checks["paths"][name] = status(path.exists(), str(path))
 
     for key, config in RUNS.items():
-        init_path = paths["project_root"] / config.init_checkpoint
-        checks["checkpoint_initializers"][key] = status(init_path.exists(), str(init_path))
+        candidates = [paths["project_root"] / relative for relative in config.stage1_checkpoint_candidates]
+        existing = [path for path in candidates if path.exists()]
+        checks["checkpoint_initializers"][key] = {
+            "ok": bool(existing),
+            "existing": [str(path) for path in existing],
+            "candidates": [str(path) for path in candidates],
+        }
 
     artifacts_dir = paths["artifacts_dir"]
     teacher_image_path = artifacts_dir / "teacher" / "biovil_t_fixed_image_embeddings.npy"
@@ -169,8 +174,8 @@ def main() -> None:
         checks["sample_images"]["missing"] = [item for item in image_checks if not item["ok"]]
 
     for module in [
-        "data.contrastive_dataset",
-        "models.contrastive_model",
+        "data.image_text_dataset",
+        "models.image_text_retrieval_model",
         "models.student_loaders",
         "models.text_encoders",
     ]:

@@ -78,10 +78,14 @@ def infer_category(rel_path: str, size_bytes: int) -> str:
     name = Path(p).name
     ext = Path(p).suffix.lower()
 
-    if "/track_ab/" in p or p.startswith("track_ab/"):
-        return "project_repo_track_ab"
-    if "/week2" in p or p.startswith("week2"):
-        return "project_repo_week2"
+    if "/biovil_t_retrieval_distillation/" in p or p.startswith("biovil_t_retrieval_distillation/"):
+        return "project_repo_biovil_t_retrieval_distillation"
+    if "/report_generation/" in p or p.startswith("report_generation/"):
+        return "project_repo_report_generation"
+    if "/image_encoder_distillation/" in p or p.startswith("image_encoder_distillation/"):
+        return "project_repo_image_encoder_distillation"
+    if "/baseline_evaluations/" in p or p.startswith("baseline_evaluations/"):
+        return "project_repo_baseline_evaluations"
     if ext in {".py", ".ipynb", ".md", ".tex", ".sh", ".yaml", ".yml", ".toml"}:
         return "project_repo_or_docs"
     if "/splits/" in p or name.startswith("kd_train") or name.startswith("kd_val") or name.startswith("kd_test"):
