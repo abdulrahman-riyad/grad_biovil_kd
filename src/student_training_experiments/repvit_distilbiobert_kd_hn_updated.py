@@ -1,6 +1,6 @@
-# Auto-exported from teammate notebook.
-# Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_training_notebooks/mobilevit-distilbiobert-kd-hn-updated.ipynb
-# Code cells: 32; markdown cells: 18
+# Auto-exported from project notebook.
+# Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_training_notebooks/repvit-distilbiobert-kd-hn-updated.ipynb
+# Code cells: 32; markdown cells: 17
 # Notebook shell commands and magics are preserved as comments.
 # ruff: noqa
 # pylint: skip-file
@@ -49,9 +49,9 @@ VAL_PKL = "/kaggle/input/datasets/shahdammar/distillationdataset/biovil_t_valida
 # %% code cell 5
 OUT_DIR = '/kaggle/working/contrastive_kd'
 os.makedirs(OUT_DIR, exist_ok=True)
-STAGE1_IMG_CKPT = f'{OUT_DIR}/stage1_mobilevit.pth'
+STAGE1_IMG_CKPT = f'{OUT_DIR}/stage1_repvit.pth'
 STAGE1_TXT_CKPT = f'{OUT_DIR}/stage1_distilbiobert.pth'
-STAGE2_IMG_CKPT = f'{OUT_DIR}/stage2_mobilevit_hn.pth'
+STAGE2_IMG_CKPT = f'{OUT_DIR}/stage2_repvit_hn.pth'
 STAGE2_TXT_CKPT = f'{OUT_DIR}/stage2_distilbiobert_hn.pth'
 
 # %% code cell 6
@@ -61,11 +61,11 @@ BATCH_SIZE = 32
 LR = 1e-4
 STAGE1_EPOCHS = 10
 STAGE2_EPOCHS = 5
-TEMPERATURE = 0.07    # InfoNCE temperature
-LAMBDA_KD = 0.25      # Weight for KD loss terms
+TEMPERATURE = 0.07   # InfoNCE temperature
+LAMBDA_KD = 0.25   # Weight for KD loss terms
 MAX_TEXT_LEN = 128    # Max tokens for report text
-HN_POOL_SIZE = 25000  # Hard negative candidate pool size
-TOP_K_HN = 5          # Number of hard negatives per sample
+HN_POOL_SIZE = 25000     # Hard negative candidate pool size
+TOP_K_HN = 5      # Number of hard negatives per sample
 
 # %% [markdown] cell 7
 # ## Exploring Dataset
@@ -108,10 +108,7 @@ print(f"Train: {len(train_df):,} studies")
 print(f"Val: {len(val_df):,} studies")
 print(f"Columns: {list(train_df.columns)}")
 
-# %% [markdown] cell 15
-# ## Splitting Train to train set and test set
-
-# %% code cell 16
+# %% code cell 15
 all_subjects = sorted(train_df['subject_id'].unique())
 
 split_idx = int(len(all_subjects) * 0.9)
@@ -126,11 +123,11 @@ print(f"Train: {len(train_df):,} studies")
 print(f"Val: {len(val_df):,} studies")
 print(f"Test: {len(test_df):,} studies")
 
-# %% [markdown] cell 17
+# %% [markdown] cell 16
 # ## Dataset Class
 # <font size='4'>Some studies include multiple views. The maximum number of views to process is set to 3, as most of the dataset has 3 views or fewer.</font>
 
-# %% code cell 18
+# %% code cell 17
 class ContrastiveDistillationDataset(Dataset):
     """
     Returns per study:
@@ -203,29 +200,27 @@ val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False,
 print(f"Train batches: {len(train_loader)}")
 print(f"Val batches: {len(val_loader)}")
 
-# %% [markdown] cell 19
+# %% [markdown] cell 18
 # # Student
 #
-# <font size='4'> **Vision Student:** MobileViT-Small provides a hybrid CNN-Transformer architecture for global and local feature awareness.
+# <font size='4'> **Vision Student:** RepViT-M1.1
 # The model is designed to handle a variable number of X-ray views per study by processing images individually and performing Late Fusion (averaging).
 #
 # <font size='4'> **Text Student:** DistilBioBERT
 #
 # <font size='4'> **Projection Head:** A multi-layer mapper that aligns the high-dimensional latent features from both student backbones with the 128-dimensional BioViL teacher space.
 
-# %% code cell 20
-class MobileViTStudent(nn.Module):
+# %% code cell 19
+class RepViTStudent(nn.Module):
     def __init__(self, teacher_dim=TEACHER_DIM):
         super().__init__()
-        self.backbone = timm.create_model('mobilevit_s', pretrained=True, num_classes=0)
-        feat_dim = self.backbone.num_features
-
+        self.backbone = timm.create_model('repvit_m1_1', pretrained=True, num_classes=0)
         self.mapper = nn.Sequential(
-            nn.Linear(feat_dim, 512),
-            nn.LayerNorm(512),
+            nn.Linear(512, 384),
+            nn.BatchNorm1d(384),
             nn.ReLU(),
             nn.Dropout(0.1),
-            nn.Linear(512, teacher_dim)
+            nn.Linear(384, teacher_dim)
         )
 
     def forward(self, x, counts):
@@ -247,7 +242,7 @@ class MobileViTStudent(nn.Module):
 
         return F.normalize(mean_emb, p=2, dim=-1) # [B, 128]
 
-# %% code cell 21
+# %% code cell 20
 class DistilBioBERTStudent(nn.Module):
     """
     Text student: DistilBioBERT backbone + projection head.
@@ -293,8 +288,8 @@ def tokenize_batch(texts):
     )
     return enc['input_ids'].to(device), enc['attention_mask'].to(device)
 
-# %% code cell 22
-img_student = MobileViTStudent().to(device)
+# %% code cell 21
+img_student = RepViTStudent().to(device)
 txt_student = DistilBioBERTStudent().to(device)
 
 # Parameter counts
@@ -305,10 +300,10 @@ print(f"Text  student params : {txt_params:.1f}M")
 print(f"Total student params : {img_params + txt_params:.1f}M")
 print(f"(Teacher: ResNet50 ~25M + CXR-BERT ~110M = ~135M)")
 
-# %% [markdown] cell 23
+# %% [markdown] cell 22
 # # Loss Functions
 
-# %% [markdown] cell 24
+# %% [markdown] cell 23
 # ### InfoNCE Loss
 # Trains the model to identify the correct image-report pair from a batch of negatives.
 # For each image, the correct report is the positive; all other reports in the batch
@@ -321,7 +316,7 @@ print(f"(Teacher: ResNet50 ~25M + CXR-BERT ~110M = ~135M)")
 #   + λ * [MSE + cosine](student_txt, teacher_txt) ← text imitation
 # ```
 
-# %% code cell 25
+# %% code cell 24
 def infonce_loss(img_emb, txt_emb, temperature=TEMPERATURE):
     """
     img_emb : [B, 128] — L2-normalized student image embeddings
@@ -361,7 +356,7 @@ def stage1_loss(s_img, s_txt, t_img, t_txt, lam=LAMBDA_KD):
     l_kd_txt  = kd_loss(s_txt, t_txt)
     return l_infonce + lam * (l_kd_img + l_kd_txt)
 
-# %% code cell 26
+# %% code cell 25
 # retrieval helpers defined EARLY so both training stages can select checkpoints on Recall@1.
 @torch.no_grad()
 def extract_embeddings(img_model, txt_model, loader):
@@ -414,10 +409,10 @@ def compute_retrieval_metrics(img_embs, txt_embs, topk=(1, 5, 10)):
 
     return results
 
-# %% [markdown] cell 27
+# %% [markdown] cell 26
 # # Stage 1: Contrastive Distillation
 
-# %% code cell 28
+# %% code cell 27
 def train_one_epoch_stage1(img_model, txt_model, loader, optimizer, scaler):
     img_model.train()
     txt_model.train()
@@ -458,7 +453,7 @@ def validate_retrieval(img_model, txt_model, loader, sample_n=5000, seed=42):
     """Selection metric = Recall@1 on the val set (the objective we actually care about)."""
     img_embs, txt_embs = extract_embeddings(img_model, txt_model, loader)
 
-    # Fixed sampled pool (seeded) so the score is comparable across epochs.
+    # sampled pool (seeded) so the score is comparable across epochs.
     n = min(sample_n, len(img_embs))
     rng = np.random.default_rng(seed)
     idx = rng.choice(len(img_embs), n, replace=False)
@@ -548,17 +543,17 @@ def run_stage1(img_model, txt_model, train_loader, val_loader, epochs=STAGE1_EPO
     print("\nStage 1 complete.")
     return history
 
-# %% code cell 29
+# %% code cell 28
 stage1_history = run_stage1(img_student, txt_student, train_loader, val_loader)
 
-# %% [markdown] cell 30
-# ### Paths to Stage 1 Models
+# %% [markdown] cell 29
+# ## Pathes to Stage 1 Models
 
-# %% code cell 31
-STAGE1_IMG_CKPT = '/kaggle/input/datasets/yasmeen550098/mobilevit-stage1/stage1_mobilevit.pth'
-STAGE1_TXT_CKPT = '/kaggle/input/datasets/yasmeen550098/mobilevit-stage1/stage1_distilbiobert.pth'
+# %% code cell 30
+STAGE1_IMG_CKPT = f'/kaggle/input/datasets/nadinemo/repvit-stage1/stage1_repvit.pth'
+STAGE1_TXT_CKPT = f'/kaggle/input/datasets/nadinemo/repvit-stage1/stage1_distilbiobert.pth'
 
-# %% [markdown] cell 32
+# %% [markdown] cell 31
 # # Stage 2: Hard Negative Fine-Tuning
 #
 # ### What are Hard Negatives?
@@ -570,7 +565,7 @@ STAGE1_TXT_CKPT = '/kaggle/input/datasets/yasmeen550098/mobilevit-stage1/stage1_
 # ### InfoNCE with Hard Negatives
 # Same InfoNCE formula, but we explicitly add the hard negatives into the denominator alongside the random batch negatives.
 
-# %% code cell 33
+# %% code cell 32
 class StudentPoolTensor(torch.Tensor):
     """
     Typed wrapper that tags a tensor as built from STUDENT embeddings.
@@ -626,17 +621,17 @@ def get_hard_negatives(student_txt_emb_batch, student_pool_embs, top_k=TOP_K_HN)
 
     student_txt_emb_batch : [B, 128] — student text embs for current batch (on device)
     student_pool_embs     : StudentPoolTensor [P, 128] — student pool (CPU, L2-normalized)
-                            Must be built with build_student_pool().
+                            Must be built with build_student_pool()
     Returns hard_neg_embs : [B, top_k, 128] on same device as student_txt_emb_batch
     """
     assert isinstance(student_pool_embs, StudentPoolTensor), (
         "student_pool_embs must be a StudentPoolTensor. "
-        "Build it with build_student_pool()"
+        "Build it with build_student_pool() "
     )
 
     # L2-normalize both sides to get valid cosine similarities
-    batch_cpu  = F.normalize(student_txt_emb_batch.detach().cpu(), p=2, dim=-1)  # [B, 128]
-    pool_norm  = F.normalize(student_pool_embs, p=2, dim=-1)                     # [P, 128]
+    batch_cpu  = student_txt_emb_batch.detach().cpu()  # [B, 128]
+    pool_norm  = student_pool_embs                    # [P, 128]
 
     sims = batch_cpu @ pool_norm.T   # [B, P] — student-to-student cosine similarity
 
@@ -686,7 +681,7 @@ def stage2_loss(s_img, s_txt, t_img, t_txt, hard_negs, lam=LAMBDA_KD):
     l_kd_txt  = kd_loss(s_txt, t_txt)
     return l_infonce + lam * (l_kd_img + l_kd_txt)
 
-# %% code cell 34
+# %% code cell 33
 # How often to rebuild the student pool (in epochs).
 # Every 2 epochs: the student's representations shift meaningfully enough
 # that a fresh pool reflects its current confusion landscape, without the
@@ -853,14 +848,14 @@ def validate_stage2(img_model, txt_model, loader, val_pool):
 
 stage2_history = run_stage2(img_student, txt_student, train_loader, val_loader, train_df)
 
-# %% [markdown] cell 35
+# %% [markdown] cell 34
 # # Evaluations
 
-# %% [markdown] cell 36
+# %% [markdown] cell 35
 # ## Retrieval Evaluation
 # Compute Recall@1, R@5, R@10, Median Rank on the validation set.
 
-# %% code cell 37
+# %% code cell 36
 @torch.no_grad()
 # Teacher (BioViL-T) embeddings come straight from the
 # precomputed per-study tensors the loader already yields
@@ -940,13 +935,14 @@ metrics_val_s2 = run_retrieval_eval(img_student, txt_student, val_loader,
                                     label='Stage 2 (Hard Negatives) — VAL',
                                     sample_n=None)
 
-# %% [markdown] cell 38
+# %% [markdown] cell 37
 # ## Save All Results
 
-# %% code cell 39
-# Save training histories
-"""with open(f'{OUT_DIR}/stage1_history.json', 'w') as f:
-    json.dump(stage1_history, f, indent=2)"""
+# %% code cell 38
+"""
+with open(f'{OUT_DIR}/stage1_history.json', 'w') as f:
+    json.dump(stage1_history, f, indent=2)
+"""
 
 with open(f'{OUT_DIR}/stage2_history.json', 'w') as f:
     json.dump(stage2_history, f, indent=2)
@@ -964,10 +960,10 @@ for f in sorted(os.listdir(OUT_DIR)):
     size = os.path.getsize(f'{OUT_DIR}/{f}') / 1e6
     print(f"  {f}  ({size:.1f} MB)")
 
-# %% [markdown] cell 40
+# %% [markdown] cell 39
 # ## Evaluation on Test Dataset
 
-# %% code cell 41
+# %% code cell 40
 print("Running final evaluation on held-out TEST set")
 
 test_ds = ContrastiveDistillationDataset(test_df)
@@ -1007,11 +1003,11 @@ with open(f'{OUT_DIR}/retrieval_metrics_test_s2.json', 'w') as f:
 with open(f'{OUT_DIR}/retrieval_metrics_test_teacher.json', 'w') as f:
     json.dump(metrics_test_teacher, f, indent=2)
 
-# %% [markdown] cell 42
+# %% [markdown] cell 41
 # ## Efficiency Table — FLOPs / Params / Latency
 # Compares teacher vs all students on computational cost.
 
-# %% code cell 43
+# %% code cell 42
 # Loads BioViL-T Encoders
 tokenizer, biovil_t_txt_model = get_biovil_t_bert()
 biovil_t_txt_model = biovil_t_txt_model.to(device)
@@ -1023,12 +1019,12 @@ biovil_t_img_model = image_inference.model.to(device)
 img_student.load_state_dict(torch.load(STAGE2_IMG_CKPT)['model_state_dict'], strict=False)
 txt_student.load_state_dict(torch.load(STAGE2_TXT_CKPT)['model_state_dict'], strict=False)
 
-# %% code cell 44
+# %% code cell 43
 def count_params(model):
     """Accurate parameter count in Millions (M)."""
     return f"{sum(p.numel() for p in model.parameters()) / 1e6:.2f}M"
 
-# %% code cell 45
+# %% code cell 44
 def measure_latency(model, dummy_input, n_runs=200, n_warmup=50):
     """
     Research-grade GPU latency measurement.
@@ -1069,14 +1065,16 @@ def measure_latency(model, dummy_input, n_runs=200, n_warmup=50):
     std_ms  = np.std(timings)
     return mean_ms, std_ms
 
-# %% code cell 46
+# %% code cell 45
 def get_flops(model, model_inputs):
     """
     Uses calflops to calculate FLOPs.
     Handles multiple inputs and custom wrappers.
     """
-    model.eval()
+    model.eval() # Keep on current device (usually GPU)
 
+    # Convert inputs to a LIST because calflops tries to modify them in-place
+    # args[index] = ... is what caused your error. Lists allow this; tuples do not.
     if isinstance(model_inputs, (list, tuple)):
         input_args = list(model_inputs)
     else:
@@ -1110,7 +1108,7 @@ def get_flops_text(model):
     )
     return f"{flops / 1e9:.3f} G"
 
-# %% code cell 47
+# %% code cell 46
 # Dummy inputs
 dummy_img    = torch.randn(1, 3, 224, 224).to(device)
 dummy_view1  = torch.randn(1, 1, 3, 224, 224).to(device)
@@ -1127,25 +1125,25 @@ rows = []
 print("Calculating efficiency metrics... (this may take a minute)")
 
 
-# 1. MobileViT-S backbone only
+# 1. RepViT-M1.1 backbone only
 rows.append({
-    'Model     ': 'MobileViT-S (backbone only)     ',
+    'Model     ': 'RepViT-M1.1 (backbone only)     ',
     'FLOPs     ': get_flops(img_student.backbone, dummy_img)+'     ',
     'Params     ': count_params(img_student.backbone)+'     ',
     'Latency (ms)     ': '{:.2f} ± {:.2f}'.format(*measure_latency(img_student.backbone, dummy_img))
 })
 
-# 2. MobileViT-S Student — 1-view (fair apples-to-apples vs. teacher)
+# 2. RepViT-M1.1 Student — 1-view (fair apples-to-apples vs. teacher)
 rows.append({
-    'Model     ': 'MobileViT-S Student (1-view)     ',
+    'Model     ': 'RepViT-M1.1 Student (1-view)     ',
     'FLOPs     ': get_flops(img_student, [dummy_view1, dummy_count1])+'     ',
     'Params     ': count_params(img_student)+'     ',
     'Latency (ms)     ': '{:.2f} ± {:.2f}'.format(*measure_latency(img_student, [dummy_view1, dummy_count1]))
 })
 
-# 3. MobileViT-S Student — 3-view (real operational cost)
+# 3. RepViT-M1.1 Student — 3-view (real operational cost)
 rows.append({
-    'Model     ': 'MobileViT-S Student (3-view)     ',
+    'Model     ': 'RepViT-M1.1 Student (3-view)     ',
     'FLOPs     ': get_flops(img_student, [dummy_views3, dummy_count3])+'     ',
     'Params     ': count_params(img_student)+'     ',
     'Latency (ms)     ': '{:.2f} ± {:.2f}'.format(*measure_latency(img_student, [dummy_views3, dummy_count3]))
@@ -1192,10 +1190,10 @@ print("\nEfficiency Comparison Table")
 print(efficiency_df.to_string(index=False))
 efficiency_df.to_csv(f'{OUT_DIR}/efficiency_table.csv', index=False)
 
-# %% [markdown] cell 48
+# %% [markdown] cell 47
 # # Summary
 
-# %% code cell 49
+# %% code cell 48
 def _print_block(title, metrics):
     print(f"\n {title}")
     for direction, m in metrics.items():
@@ -1239,6 +1237,6 @@ print(f"Stage 1 text : {STAGE1_TXT_CKPT}")
 print(f"Stage 2 image: {STAGE2_IMG_CKPT}")
 print(f"Stage 2 text : {STAGE2_TXT_CKPT}")
 
-# %% [markdown] cell 50
+# %% [markdown] cell 49
 # ## Thoughts
-# <font size='4'> With the successful distillation of BioViL features into MobileViT & DistilBioBERT, we are ready to build a generative VLM. By appending a projection layer and a decoder, the model will be trained to synthesize medical reports from medical images. The upcoming phase involves fine-tuning a decoder on the reports to ensure clinical accuracy. </font>
+# <font size='4'> With the successful distillation of BioViL features into RepViT-M1.1 & DistilBioBERT, we are ready to build a generative VLM. By appending a projection layer and a decoder, the model will be trained to synthesize medical reports from medical images. The upcoming phase involves fine-tuning a decoder on the reports to ensure clinical accuracy. </font>

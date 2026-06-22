@@ -1,6 +1,6 @@
-# Auto-exported from teammate notebook.
-# Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_baselines_notebooks/MobileCLIP_s0.ipynb
-# Code cells: 9; markdown cells: 5
+# Auto-exported from project notebook.
+# Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_baselines_notebooks/MobileCLIP_s1.ipynb
+# Code cells: 10; markdown cells: 5
 # Notebook shell commands and magics are preserved as comments.
 # ruff: noqa
 # pylint: skip-file
@@ -17,7 +17,7 @@
 # ## Configrations
 
 # %% code cell 3
-# NOTEBOOK_COMMAND: !wget https://docs-assets.developer.apple.com/ml-research/datasets/mobileclip/mobileclip_s0.pt
+# NOTEBOOK_COMMAND: !wget https://docs-assets.developer.apple.com/ml-research/datasets/mobileclip/mobileclip_s1.pt
 
 # %% code cell 4
 # NOTEBOOK_COMMAND: !pip install git+https://github.com/apple/ml-mobileclip.git
@@ -67,8 +67,8 @@ def select_device() -> torch.device:
 
 DEVICE = select_device()
 
-model_name = "mobileclip_s0" # Options: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b
-pretrained = "mobileclip_s0.pt"
+model_name = "mobileclip_s1" # Options: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b
+pretrained = "mobileclip_s1.pt"
 
 model, _, preprocess = mobileclip.create_model_and_transforms(model_name, pretrained=pretrained)
 tokenizer = mobileclip.get_tokenizer(model_name)
@@ -80,8 +80,8 @@ tokenizer = mobileclip.get_tokenizer(model_name)
 TEXT_BATCH_SIZE = 32
 MAX_TEXT_TOKENS = 128
 
-TEXT_EMBEDDING_PATH = "MoblileCLIP_s0_mimic_cxr_text_embeddings.pt"
-IMAGE_EMBEDDING_PATH = "MobileCLIP_s0_mimic_cxr_image_embeddings.pt"
+TEXT_EMBEDDING_PATH = "MoblileCLIP_s1_mimic_cxr_text_embeddings.pt"
+IMAGE_EMBEDDING_PATH = "MobileCLIP_s1_mimic_cxr_image_embeddings.pt"
 
 # Evaluation / throughputC
 random.seed(SEED)

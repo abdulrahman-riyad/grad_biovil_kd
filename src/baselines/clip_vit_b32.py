@@ -1,6 +1,6 @@
-# Auto-exported from teammate notebook.
-# Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_baselines_notebooks/MobileCLIP_s1.ipynb
-# Code cells: 10; markdown cells: 5
+# Auto-exported from project notebook.
+# Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_baselines_notebooks/CLIP_ViT_B32.ipynb
+# Code cells: 6; markdown cells: 5
 # Notebook shell commands and magics are preserved as comments.
 # ruff: noqa
 # pylint: skip-file
@@ -17,12 +17,6 @@
 # ## Configrations
 
 # %% code cell 3
-# NOTEBOOK_COMMAND: !wget https://docs-assets.developer.apple.com/ml-research/datasets/mobileclip/mobileclip_s1.pt
-
-# %% code cell 4
-# NOTEBOOK_COMMAND: !pip install git+https://github.com/apple/ml-mobileclip.git
-
-# %% code cell 5
 import ast
 import json
 import math
@@ -39,7 +33,8 @@ import torch.nn.functional as F
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 
-import mobileclip
+from transformers import CLIPProcessor, CLIPModel
+
 # ----------------------------
 # Configuration
 # ----------------------------
@@ -66,12 +61,11 @@ def select_device() -> torch.device:
 
 
 DEVICE = select_device()
+CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
+model = CLIPModel.from_pretrained(CLIP_MODEL_ID)
+processor = CLIPProcessor.from_pretrained(CLIP_MODEL_ID)
 
-model_name = "mobileclip_s1" # Options: mobileclip_s0, mobileclip_s1, mobileclip_s2, mobileclip_b
-pretrained = "mobileclip_s1.pt"
 
-model, _, preprocess = mobileclip.create_model_and_transforms(model_name, pretrained=pretrained)
-tokenizer = mobileclip.get_tokenizer(model_name)
 
 # CSV expected to contain columns like:
 # text or text_list, plus PA, AP, Lateral
@@ -80,9 +74,6 @@ tokenizer = mobileclip.get_tokenizer(model_name)
 TEXT_BATCH_SIZE = 32
 MAX_TEXT_TOKENS = 128
 
-TEXT_EMBEDDING_PATH = "MoblileCLIP_s1_mimic_cxr_text_embeddings.pt"
-IMAGE_EMBEDDING_PATH = "MobileCLIP_s1_mimic_cxr_image_embeddings.pt"
-
 # Evaluation / throughputC
 random.seed(SEED)
 np.random.seed(SEED)
@@ -90,15 +81,15 @@ torch.manual_seed(SEED)
 
 print(f"Using device: {DEVICE}")
 
-# %% [markdown] cell 6
+# %% [markdown] cell 4
 # ## Prepare Testset
 
-# %% code cell 7
+# %% code cell 5
 test_df = pd.read_csv("/kaggle/input/datasets/mohamed311ahmed/mimic-cxr-testsplit/kd_test_metadata.csv")
 
 test_df.head()
 
-# %% code cell 8
+# %% code cell 6
 import re
 import pathlib
 import pandas as pd
@@ -121,7 +112,7 @@ def clean_image_paths(val):
     # Fallback: If it's already an empty list or unexpected format, return it as-is
     return val
 
-# %% code cell 9
+# %% code cell 7
 # Assuming your dataframe is named 'df'
 # Apply the cleaning function in place to the same column
 test_df['image_paths'] = test_df['image_paths'].apply(clean_image_paths)
@@ -133,87 +124,75 @@ print(test_df['image_paths'].iloc[0])
 print("\nData type of the column cell:")
 print(type(test_df['image_paths'].iloc[0]))
 
-# %% [markdown] cell 10
+# %% [markdown] cell 8
 # ## Get the model text encoder and image encoder
 
-# %% code cell 11
+# %% code cell 9
 import torch
 from PIL import Image
+from transformers import CLIPProcessor, CLIPModel
 from tqdm import tqdm  # Import the progress bar library
-import mobileclip      # Import the MobileCLIP library
 
-def get_mobileclip_embeddings_multi_image(
-    image_paths_per_row,
-    texts,
-    model_name=model_name,
-    pretrained=pretrained
-):
+def get_clip_embeddings_multi_image(image_paths_per_row, texts, model_name=CLIP_MODEL_ID):
     """
-    Extracts MobileCLIP embeddings for text and computes the MEAN embedding for multiple corresponding images.
+    Extracts CLIP embeddings for text and computes the MEAN embedding for multiple corresponding images.
     Uses tqdm to cleanly display progress.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    # 1. Load MobileCLIP model, preprocessor, and tokenizer
-    # Available models: "mobileclip_s0", "mobileclip_s1", "mobileclip_s2", "mobileclip_b", "mobileclip_blt"
-    model, _, preprocess = mobileclip.create_model_and_transforms(model_name, pretrained=pretrained)
-    model = model.to(device)
-    model.eval()
-
-    tokenizer = mobileclip.get_tokenizer(model_name)
+    # Load model and processor
+    model = CLIPModel.from_pretrained(model_name).to(device)
+    processor = CLIPProcessor.from_pretrained(model_name)
 
     all_text_embeds = []
     all_image_embeds = []
 
     total_rows = len(texts)
-    embedding_dim = None # Dynamically determine projection dimension
 
     # Wrap the loop with tqdm to generate a live progress bar
-    for i in tqdm(range(total_rows), desc=f"Extracting {model_name} Embeddings"):
+    for i in tqdm(range(total_rows), desc="Extracting CLIP Embeddings"):
         text = texts[i]
         paths = image_paths_per_row[i]
 
         # --- 1. Process Text ---
-        # Tokenizer directly outputs a tensor for MobileCLIP
-        text_tokens = tokenizer([text]).to(device)
+        text_inputs = processor(text=[text], return_tensors="pt", padding=True, truncation=True)
+        text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
 
         with torch.no_grad():
-            text_embed = model.encode_text(text_tokens).cpu()
-
-            # Capture the exact embedding dimension on the first pass (often 512)
-            if embedding_dim is None:
-                embedding_dim = text_embed.shape[-1]
+            text_outputs = model.get_text_features(**text_inputs)
+            if hasattr(text_outputs, "pooler_output"):
+                text_embed = text_outputs.pooler_output.cpu()
+            else:
+                text_embed = text_outputs.cpu()
 
         all_text_embeds.append(text_embed)
 
         # --- 2. Process Multiple Images for this row ---
-        valid_image_tensors = []
+        valid_images = []
         for path in paths:
             try:
                 img = Image.open(path).convert("RGB")
-                # Preprocess immediately returns a single tensor for the image
-                img_tensor = preprocess(img)
-                valid_image_tensors.append(img_tensor)
+                valid_images.append(img)
             except Exception as e:
-                # Using tqdm.write keeps the progress bar from breaking apart
+                # Using tqdm.write instead of print keeps the progress bar from breaking apart
                 tqdm.write(f"Row {i}: Error loading image at {path}: {e}")
 
-        if len(valid_image_tensors) > 0:
-            # Stack individual preprocessed tensors into a batch tensor
-            image_inputs = torch.stack(valid_image_tensors).to(device)
+        if len(valid_images) > 0:
+            image_inputs = processor(images=valid_images, return_tensors="pt")
+            image_inputs = {k: v.to(device) for k, v in image_inputs.items()}
 
             with torch.no_grad():
-                # Get embeddings for all images in the row
-                image_features = model.encode_image(image_inputs).cpu()
+                image_outputs = model.get_image_features(**image_inputs)
+                if hasattr(image_outputs, "pooler_output"):
+                    image_features = image_outputs.pooler_output.cpu()
+                else:
+                    image_features = image_outputs.cpu()
 
-                # Calculate the mean across the batch dimension (dim=0)
-                # keepdim=True preserves the shape as (1, embedding_dim)
                 mean_image_embed = image_features.mean(dim=0, keepdim=True)
         else:
-            # Fallback for completely failed rows
-            dim_to_use = embedding_dim if embedding_dim is not None else 512
-            mean_image_embed = torch.zeros((1, dim_to_use))
+            embedding_dim = model.config.projection_dim
+            mean_image_embed = torch.zeros((1, embedding_dim))
             tqdm.write(f"Warning: Row {i} had no valid images. Filled embedding with zeros.")
 
         all_image_embeds.append(mean_image_embed)
@@ -224,40 +203,25 @@ def get_mobileclip_embeddings_multi_image(
 
     return final_text_features, final_image_features
 
-# %% [markdown] cell 12
+# %% [markdown] cell 10
 # ## extract the visual and textual embeddings
 
-# %% code cell 13
+# %% code cell 11
 image_lists = test_df['image_paths'].tolist()
 text_list = test_df['report_text'].tolist()  # You can also use 'raw_report_text'
 
 # 3. Run your multi-image embedding function
 print("Starting embedding extraction process...")
-text_features, image_features = get_mobileclip_embeddings_multi_image(
+text_features, image_features = get_clip_embeddings_multi_image(
     image_paths_per_row=image_lists,
     texts=text_list,
 )
 
 # 4. Save the raw PyTorch tensors to disk
 # This keeps the multi-dimensional arrays intact without altering or truncating them
-torch.save(text_features, TEXT_EMBEDDING_PATH)
-torch.save(image_features, IMAGE_EMBEDDING_PATH)
+torch.save(text_features, 'CLIP_ViT_B32_mimic_cxr_text_embeddings.pt')
+torch.save(image_features, 'CLIP_ViT_B32_mimic_cxr_image_embeddings.pt')
 
 print("\nAll done! Embeddings extracted and saved successfully.")
 print(f"Saved Text Tensor Shape: {text_features.shape}")   # Expected: [num_rows, 512]
 print(f"Saved Image Tensor Shape: {image_features.shape}") # Expected: [num_rows, 512]
-
-# %% code cell 14
-import torch
-import torch.nn.functional as F
-
-# 1. Load your saved tensors
-text_features = torch.load(TEXT_EMBEDDING_PATH)
-image_features = torch.load(IMAGE_EMBEDDING_PATH)
-
-# 2. Compute the cosine similarity between paired rows
-# dim=1 ensures it computes similarity across the 512 embedding dimensions for each row
-paired_similarities = F.cosine_similarity(text_features, image_features, dim=1)
-
-print("Paired Similarities Tensor Shape:", paired_similarities.shape) # Expected: [num_rows]
-print("Similarity of row 0:", paired_similarities[0].item())

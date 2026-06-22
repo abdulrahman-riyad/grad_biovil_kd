@@ -1,4 +1,4 @@
-# Auto-exported from teammate notebook.
+# Auto-exported from project notebook.
 # Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_baselines_notebooks/retrival-evaluation-pipeline.ipynb
 # Code cells: 11; markdown cells: 12
 # Notebook shell commands and magics are preserved as comments.

@@ -1,4 +1,4 @@
-# Auto-exported from teammate notebook.
+# Auto-exported from project notebook.
 # Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_baselines_notebooks/TinyCLIP.ipynb
 # Code cells: 10; markdown cells: 8
 # Notebook shell commands and magics are preserved as comments.

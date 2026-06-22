@@ -1,6 +1,6 @@
-# Auto-exported from teammate notebook.
-# Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_baselines_notebooks/CLIP_ViT_B32.ipynb
-# Code cells: 6; markdown cells: 5
+# Auto-exported from project notebook.
+# Source notebook: week4_structured_project/Final_ppt/materials/new_teammates_baselines_notebooks/MedCLIP_ViT_V1.ipynb
+# Code cells: 12; markdown cells: 5
 # Notebook shell commands and magics are preserved as comments.
 # ruff: noqa
 # pylint: skip-file
@@ -17,6 +17,28 @@
 # ## Configrations
 
 # %% code cell 3
+# NOTEBOOK_CELL_MAGIC: %%writefile requirements.txt
+# numpy
+# pandas
+# Pillow
+# requests
+# tqdm
+# wget
+# nltk>=3.7
+# scikit_learn>=1.1.2
+# textaugment>=1.3.4
+# timm>=0.6.11
+# torch>=1.12.1
+# torchvision>=0.13.1
+# transformers>=4.23.1,<=4.24.0
+
+# %% code cell 4
+# NOTEBOOK_COMMAND: !pip install -r requirements.txt --force-reinstall
+
+# %% code cell 5
+# NOTEBOOK_COMMAND: !pip install medclip
+
+# %% code cell 6
 import ast
 import json
 import math
@@ -25,7 +47,7 @@ import random
 import re
 from pathlib import Path
 from typing import Dict, List, Optional
-
+import transformers
 import numpy as np
 import pandas as pd
 import torch
@@ -33,8 +55,12 @@ import torch.nn.functional as F
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 
-from transformers import CLIPProcessor, CLIPModel
-
+from medclip import MedCLIPModel, MedCLIPVisionModelViT
+from medclip import MedCLIPProcessor
+from kaggle_secrets import UserSecretsClient
+secret_label = "HF_TOKEN"
+secret_value = UserSecretsClient().get_secret(secret_label)
+os.environ["HF_TOKEN"] = secret_value
 # ----------------------------
 # Configuration
 # ----------------------------
@@ -59,14 +85,9 @@ def select_device() -> torch.device:
 
     return torch.device("cuda")
 
+vision_backbone = "vit"
 
 DEVICE = select_device()
-CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
-model = CLIPModel.from_pretrained(CLIP_MODEL_ID)
-processor = CLIPProcessor.from_pretrained(CLIP_MODEL_ID)
-
-
-
 # CSV expected to contain columns like:
 # text or text_list, plus PA, AP, Lateral
 
@@ -81,15 +102,15 @@ torch.manual_seed(SEED)
 
 print(f"Using device: {DEVICE}")
 
-# %% [markdown] cell 4
+# %% [markdown] cell 7
 # ## Prepare Testset
 
-# %% code cell 5
+# %% code cell 8
 test_df = pd.read_csv("/kaggle/input/datasets/mohamed311ahmed/mimic-cxr-testsplit/kd_test_metadata.csv")
 
 test_df.head()
 
-# %% code cell 6
+# %% code cell 9
 import re
 import pathlib
 import pandas as pd
@@ -112,7 +133,7 @@ def clean_image_paths(val):
     # Fallback: If it's already an empty list or unexpected format, return it as-is
     return val
 
-# %% code cell 7
+# %% code cell 10
 # Assuming your dataframe is named 'df'
 # Apply the cleaning function in place to the same column
 test_df['image_paths'] = test_df['image_paths'].apply(clean_image_paths)
@@ -124,26 +145,42 @@ print(test_df['image_paths'].iloc[0])
 print("\nData type of the column cell:")
 print(type(test_df['image_paths'].iloc[0]))
 
-# %% [markdown] cell 8
+# %% [markdown] cell 11
 # ## Get the model text encoder and image encoder
 
-# %% code cell 9
-import torch
-from PIL import Image
-from transformers import CLIPProcessor, CLIPModel
-from tqdm import tqdm  # Import the progress bar library
-
-def get_clip_embeddings_multi_image(image_paths_per_row, texts, model_name=CLIP_MODEL_ID):
+# %% code cell 12
+def get_medclip_embeddings_multi_image(
+    image_paths_per_row,
+    texts,
+    vision_backbone=vision_backbone
+):
     """
-    Extracts CLIP embeddings for text and computes the MEAN embedding for multiple corresponding images.
-    Uses tqdm to cleanly display progress.
+    Extracts MedCLIP embeddings for text and computes the MEAN embedding for multiple corresponding images.
+
+    Parameters:
+    - image_paths_per_row: List of lists containing image file paths.
+    - texts: List of text descriptions.
+    - vision_backbone: 'vit' for Swin Transformer (default) or 'resnet' for ResNet-50.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    # Load model and processor
-    model = CLIPModel.from_pretrained(model_name).to(device)
-    processor = CLIPProcessor.from_pretrained(model_name)
+    # 1. Initialize the correct MedCLIP variant backbone
+    if vision_backbone.lower() == "vit":
+        model = MedCLIPModel(vision_cls=MedCLIPVisionModelViT)
+    elif vision_backbone.lower() == "resnet":
+        from medclip import MedCLIPVisionModel
+        model = MedCLIPModel(vision_cls=MedCLIPVisionModel)
+    else:
+        raise ValueError("vision_backbone must be either 'vit' or 'resnet'")
+
+    # Load pretrained weights and send to device
+    model.from_pretrained()
+    model = model.to(device)
+    model.eval()
+
+    # 2. Initialize the unified processor (handles both images and text)
+    processor = MedCLIPProcessor()
 
     all_text_embeds = []
     all_image_embeds = []
@@ -151,20 +188,20 @@ def get_clip_embeddings_multi_image(image_paths_per_row, texts, model_name=CLIP_
     total_rows = len(texts)
 
     # Wrap the loop with tqdm to generate a live progress bar
-    for i in tqdm(range(total_rows), desc="Extracting CLIP Embeddings"):
+    for i in tqdm(range(total_rows), desc="Extracting MedCLIP Embeddings"):
         text = texts[i]
         paths = image_paths_per_row[i]
 
         # --- 1. Process Text ---
-        text_inputs = processor(text=[text], return_tensors="pt", padding=True, truncation=True)
+        # MedCLIP processor automatically handles text padding and truncation
+        text_inputs = processor(text=[text], return_tensors="pt", padding=True)
         text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
 
         with torch.no_grad():
-            text_outputs = model.get_text_features(**text_inputs)
-            if hasattr(text_outputs, "pooler_output"):
-                text_embed = text_outputs.pooler_output.cpu()
-            else:
-                text_embed = text_outputs.cpu()
+            text_embed = model.encode_text(
+                input_ids=text_inputs['input_ids'],
+                attention_mask=text_inputs['attention_mask']
+            ).cpu()
 
         all_text_embeds.append(text_embed)
 
@@ -175,23 +212,20 @@ def get_clip_embeddings_multi_image(image_paths_per_row, texts, model_name=CLIP_
                 img = Image.open(path).convert("RGB")
                 valid_images.append(img)
             except Exception as e:
-                # Using tqdm.write instead of print keeps the progress bar from breaking apart
+                # Using tqdm.write keeps the progress bar layout from breaking apart
                 tqdm.write(f"Row {i}: Error loading image at {path}: {e}")
 
         if len(valid_images) > 0:
+            # MedCLIPProcessor natively processes lists of images into a single batched tensor
             image_inputs = processor(images=valid_images, return_tensors="pt")
-            image_inputs = {k: v.to(device) for k, v in image_inputs.items()}
+            pixel_values = image_inputs['pixel_values'].to(device)
 
             with torch.no_grad():
-                image_outputs = model.get_image_features(**image_inputs)
-                if hasattr(image_outputs, "pooler_output"):
-                    image_features = image_outputs.pooler_output.cpu()
-                else:
-                    image_features = image_outputs.cpu()
-
+                image_features = model.encode_image(pixel_values).cpu()
                 mean_image_embed = image_features.mean(dim=0, keepdim=True)
         else:
-            embedding_dim = model.config.projection_dim
+            # Dynamically grab the correct embedding dimension directly from the text features
+            embedding_dim = text_embed.shape[-1]
             mean_image_embed = torch.zeros((1, embedding_dim))
             tqdm.write(f"Warning: Row {i} had no valid images. Filled embedding with zeros.")
 
@@ -203,25 +237,43 @@ def get_clip_embeddings_multi_image(image_paths_per_row, texts, model_name=CLIP_
 
     return final_text_features, final_image_features
 
-# %% [markdown] cell 10
+# %% [markdown] cell 13
 # ## extract the visual and textual embeddings
 
-# %% code cell 11
+# %% code cell 14
+test_df = test_df.head(20)
+
+# %% code cell 15
 image_lists = test_df['image_paths'].tolist()
 text_list = test_df['report_text'].tolist()  # You can also use 'raw_report_text'
 
 # 3. Run your multi-image embedding function
 print("Starting embedding extraction process...")
-text_features, image_features = get_clip_embeddings_multi_image(
+text_features, image_features = get_medclip_embeddings_multi_image(
     image_paths_per_row=image_lists,
     texts=text_list,
 )
 
 # 4. Save the raw PyTorch tensors to disk
 # This keeps the multi-dimensional arrays intact without altering or truncating them
-torch.save(text_features, 'CLIP_ViT_B32_mimic_cxr_text_embeddings.pt')
-torch.save(image_features, 'CLIP_ViT_B32_mimic_cxr_image_embeddings.pt')
+torch.save(text_features, 'medCLIP_ViT_mimic_cxr_text_embeddings.pt')
+torch.save(image_features, 'medCLIP_ViT_mimic_cxr_image_embeddings.pt')
 
 print("\nAll done! Embeddings extracted and saved successfully.")
 print(f"Saved Text Tensor Shape: {text_features.shape}")   # Expected: [num_rows, 512]
 print(f"Saved Image Tensor Shape: {image_features.shape}") # Expected: [num_rows, 512]
+
+# %% code cell 16
+import torch
+import torch.nn.functional as F
+
+# 1. Load your saved tensors
+text_features = torch.load('/kaggle/working/medCLIP_ViT_mimic_cxr_text_embeddings.pt')
+image_features = torch.load('/kaggle/working/medCLIP_ViT_mimic_cxr_image_embeddings.pt')
+
+# 2. Compute the cosine similarity between paired rows
+# dim=1 ensures it computes similarity across the 512 embedding dimensions for each row
+paired_similarities = F.cosine_similarity(text_features, image_features, dim=1)
+
+print("Paired Similarities Tensor Shape:", paired_similarities.shape) # Expected: [num_rows]
+print("Similarity of row 0:", paired_similarities[0].item())
